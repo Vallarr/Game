@@ -1541,12 +1541,14 @@ var Roles = {
         if(attackedRoom){
             if(!Memory.rooms[attackedRoom].defense.underAttack){
                 console.log(creep.memory.role + ' creep ' + creep.name + ' its room ' + attackedRoom + ' is no longer under attack. Moving to different room.');
+                activeCreep.stationaryCombat();
                 delete creep.memory.targetRoom;
                 return;
             }
             if(!Game.rooms[attackedRoom]){
                 //console.log(creep.name + ' Going to attacked room');
                 activeCreep.moveToRoom(attackedRoom);
+                activeCreep.stationaryCombat();
                 return;
             }
         }
@@ -1572,6 +1574,7 @@ var Roles = {
                 else {
                     //console.log(creep.memory.role + ' creep ' + creep.name + ' has no room to go to');
                     if(targetRooms.length){activeCreep.moveToRoom(targetRooms[0])};
+                    activeCreep.stationaryCombat();
                     return;
                 }
             }
@@ -1582,6 +1585,7 @@ var Roles = {
         if(!room){
             //console.log(creep.name + ' Going to attacked room');
             activeCreep.moveToRoom(attackedRoom);
+            activeCreep.stationaryCombat();
             return;
         }
         
