@@ -1,9 +1,9 @@
 var creepsToSpawn = {'W32N25':  {settler: {harvester: 2, transporter: 2, repairer: 1, builder: 0, upgrader: 2, melee: 0, miner: 1},
                                 explorer: {harvester: 3, transporter: 3, repairer: 1, builder: 0, reserver: 2, upgrader: 0, melee: 0},
-                                adventurer: {harvester: 3, transporter: 7, repairer: 2, builder: 0, melee: 0, ranged: 0, patroller: 0}},
+                                adventurer: {harvester: 3, transporter: 7, repairer: 2, builder: 0, melee: 0, ranged: 0, hybrid: 0, patroller: 0}},
                      'W33N26':  {settler: {harvester: 2, transporter: 2, repairer: 1, builder: 0, upgrader: 2, melee: 0, miner: 1},
                                 explorer: {harvester: 0, transporter: 0, repairer: 0, builder: 0, reserver: 0, upgrader: 0, melee: 0},
-                                adventurer: {harvester: 0, transporter: 0, repairer: 0, builder: 0, melee: 0, ranged: 0, patroller: 0}}
+                                adventurer: {harvester: 0, transporter: 0, repairer: 0, builder: 0, melee: 0, ranged: 0, hybrid: 0, patroller: 0}}
                     };
 var defaultCreepBodies =   {settler:   {harvester: [WORK,WORK,WORK,WORK,WORK,CARRY,MOVE,MOVE,MOVE],
                                         transporter: [CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE],
@@ -24,6 +24,7 @@ var defaultCreepBodies =   {settler:   {harvester: [WORK,WORK,WORK,WORK,WORK,CAR
                                         builder: [WORK,CARRY,WORK,CARRY,MOVE,WORK,CARRY,WORK,CARRY,MOVE,WORK,CARRY,WORK,CARRY,MOVE,MOVE,MOVE,MOVE], 
                                         melee: [TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE],
                                         ranged: [TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE],
+                                        hybrid: [MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,RANGED_ATTACK,ATTACK,RANGED_ATTACK,ATTACK,RANGED_ATTACK,ATTACK,RANGED_ATTACK,ATTACK,RANGED_ATTACK,ATTACK,RANGED_ATTACK,ATTACK,RANGED_ATTACK,ATTACK,RANGED_ATTACK,ATTACK,RANGED_ATTACK,ATTACK,RANGED_ATTACK,ATTACK,HEAL,HEAL,HEAL,HEAL,HEAL],
                                         patroller: [MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,HEAL,HEAL,HEAL,HEAL,HEAL]}
                             };                  
 var creepBodies =   {'W32N25': {settler:   {harvester: [WORK,WORK,WORK,WORK,WORK,CARRY,MOVE,MOVE,MOVE],
@@ -66,7 +67,7 @@ var creepBodies =   {'W32N25': {settler:   {harvester: [WORK,WORK,WORK,WORK,WORK
      this.roles.settler = ['harvester','transporter','repairer','builder','upgrader','melee','miner'];
      this.roles.defender = ['repairer','builder','melee','ranged']
      this.roles.explorer = ['melee','harvester','transporter','repairer','builder','reserver','upgrader'];
-     this.roles.adventurer = ['ranged','patroller','melee','harvester','transporter','repairer','builder'];
+     this.roles.adventurer = ['hybrid','ranged','patroller','melee','harvester','transporter','repairer','builder'];
  };
  
  Spawn.prototype.checkExplorerAttack = function(){
@@ -85,12 +86,14 @@ Spawn.prototype.checkAttack = function(targetRooms,type){
  if(targetRooms[this.spawn.room.name] != undefined){
      creepsToSpawn[this.spawn.room.name][type]['melee'] = 0;
      creepsToSpawn[this.spawn.room.name][type]['ranged'] = 0;
+     creepsToSpawn[this.spawn.room.name][type]['hybrid'] = 0;
      for(let i=0; i<targetRooms[this.spawn.room.name].length; i++){
          //console.log(JSON.stringify(Memory.rooms[targetRooms[this.spawn.room.name][i]]));
          if(Memory.rooms[targetRooms[this.spawn.room.name][i]].defense.underAttack && Memory.rooms[targetRooms[this.spawn.room.name][i]].defense.lastAttacker == 'Invader'){
              //console.log('Room '+ targetRooms[this.spawn.room.name][i] + ' under attack, spawning melees');
-             creepsToSpawn[this.spawn.room.name][type]['melee'] += Math.ceil(Memory.rooms[targetRooms[this.spawn.room.name][i]].defense.hostiles.number/2);
-             creepsToSpawn[this.spawn.room.name][type]['ranged'] += Math.ceil(Memory.rooms[targetRooms[this.spawn.room.name][i]].defense.hostiles.number/2);
+             creepsToSpawn[this.spawn.room.name][type]['melee'] += Math.ceil(Memory.rooms[targetRooms[this.spawn.room.name][i]].defense.hostiles.number/5);
+             creepsToSpawn[this.spawn.room.name][type]['ranged'] += Math.ceil(Memory.rooms[targetRooms[this.spawn.room.name][i]].defense.hostiles.number/5);
+             creepsToSpawn[this.spawn.room.name][type]['hybrid'] = 1;
              //console.log('Attackers ' + creepsToSpawn[this.spawn.room.name]['adventurer']['melee']);
              //console.log('Ranged ' + creepsToSpawn[this.spawn.room.name]['adventurer']['ranged']);
          }
