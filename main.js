@@ -59,6 +59,9 @@ module.exports.loop = function () {
             if(Memory.rooms[Memory.creeps[name].origin].creeps && Memory.rooms[Memory.creeps[name].origin].creeps[type] && Memory.rooms[Memory.creeps[name].origin].creeps[type][Memory.creeps[name].role]){
                 //console.log('-1 for ' + role + ' of ' + type + ' in room ' + origin);
                 Memory.rooms[Memory.creeps[name].origin].creeps[type][Memory.creeps[name].role]--;
+                if(Memory.rooms[Memory.creeps[name].origin].creeps[type][Memory.creeps[name].role] < 0){
+                    Memory.rooms[Memory.creeps[name].origin].creeps[type][Memory.creeps[name].role] = 0;
+                }
             }
             delete Memory.creeps[name];
             //console.log('Clearing non-existing creep memory:', name);
