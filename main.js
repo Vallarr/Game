@@ -11,6 +11,7 @@ var adventureRooms = {'W32N25': ['W35N25','W34N25'], 'W33N26': []};
 var claimRooms = {'W32N25': {'W33N26': true}};
                    
 module.exports.loop = function () {
+    //console.log(ROLE_HARVESTER);
     //console.log('Loading scripts took ' + Game.cpu.getUsed() + ' cpu units');
     /*var stringified = JSON.stringify(Memory);
     var startCpu = Game.cpu.getUsed();
@@ -76,6 +77,7 @@ module.exports.loop = function () {
             spawn.spawnCreep();
             spawn.spawnExplorerCreep();
             spawn.spawnCreepv2('adventurer');
+            //spawn.spawnCreepv2('defender');
             //let used = Game.cpu.getUsed()-start;
             //console.log('Checking spawns for '+ name + ' took ' + used + ' cpu units');            
         }
@@ -178,11 +180,17 @@ module.exports.loop = function () {
                     else if(Game.creeps[name].memory.type == 'adventurer'){
                         Roles.creepExplorerCombat(Game.creeps[name],adventureRooms);
                     }
+                    else if(Game.creeps[name].memory.type == 'defender'){
+                        //Roles.creepDefenderCombat(Game.creeps[name]);
+                    }
                 }
                 if(Game.creeps[name].memory.role == 'ranged') {
                     if(Game.creeps[name].memory.type == 'adventurer'){
                         Roles.creepExplorerCombat(Game.creeps[name],adventureRooms);
                     }
+                    else if(Game.creeps[name].memory.type == 'defender'){
+                        //Roles.creepDefenderCombat(Game.creeps[name]);
+                    }                    
                 }  
                 if(Game.creeps[name].memory.role == 'patroller') {
                     if(Game.creeps[name].memory.type == 'adventurer'){

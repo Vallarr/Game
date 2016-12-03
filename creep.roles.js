@@ -1593,7 +1593,127 @@ var Roles = {
                 creep.say('All Clear');
             }
         }
-	}	
+	},
+	creepDefenderCombat: function(creep) {
+	    var activeCreep = new creepActions(creep);
+	    
+	    if(activeCreep.moved){
+	        activeCreep.stationaryCombat();
+	        return;
+	    }
+	    
+	    if(!creep.room.memory.defense.underAttack){
+	        //Creep can move out of rampart and make room for workers
+	        let spawns = util.gatherObjectsInArrayFromIds(creep.room.memory.energy.structures,'spawn');
+	        if(activeCreep.moveTo(spawns,5) == OK){
+	            delete creep.memory.rampart;
+	        }
+	        return;
+	    }
+	    else if(!creep.room.memory.defense.breached){
+	        //Get in rampart and attack creeps from there
+	        
+	        let rampart = [];
+	        if(creep.memory.rampart){
+	            let creepRampart = Game.getObjectById(rampartId);
+	            if(creepRampart){
+	                rampart.push(creepRampart);
+	            }
+	            else {
+	                //Rampart no longer exists
+	                delete creep.memory.rampart;
+	                return;
+	            }
+	        }
+	        else {
+	            //Look for ramparts near hostile creeps
+	            let ramparts = creep.room.memory.defense.rampart;
+	            //TODO: look at creep role to know which ramparts to take
+	            let rampartsMelee = util.gatherObjectsInArrayFromIds(ramparts,'melee');
+	            let creepsInRamparts = creep.room.find(FIND_MY_CREEPS, {filter: (cr) => {return creep.memory.rampart}});
+	            let occupiedRamparts = [];
+	            for(let i=0; i<creepsInRamparts.length; i++){
+	                let creepRampart = Game.getObjectById(creepsInRamparts[i].memory.rampart);
+	                if(creepRampart){
+	                    occupiedRamparts.push(creepRampart);
+	                }
+	            }
+	            let target = util.findDifferentElement(rampartsMelee,occupiedRamparts);
+	            if(target != ERR_NOT_FOUND){
+	                rampart.push(target);
+	                creep.memory.rampart = target.id;
+	            }
+	            else if(ramaprtsMelee.length) {
+	                //Move towards rampart
+	                activeCreep.moveTo(rampartsMelee,5);
+	                return;
+	            }
+	            else {
+	                let rampartsOther = util.gatherObjectsInArrayFromIds(ramparts,'other');
+	                target = util.findDifferentElement(rampartsOther,occupiedRamparts);
+	                if(target != ERR_NOT_FOUND){
+	                    rampart.push(target);
+	                    creep.memory.rampart = target.id;
+	                }
+	            }
+	        }
+	        
+	        if(activeCreep.occupyRampart(rampart) == OK){
+	            let hostiles = creep.room.memory.defense.hostiles;
+	            if(stationaryCombatInOrder(hostiles,'heal','rangedHeal','meleeHeal','hybrid','melee','meleeRanged','ranged','claim') == ERR_NOT_FOUND){
+	                //No enemies near this rampart
+	                let spawns = util.gatherObjectsInArrayFromIds(creep.room.memory.energy.structures,'spawn');
+	                if(activeCreep.moveTo(spawns,5) == OK){
+	                    delete creep.memory.rampart;
+	                }
+	            }
+	        }
+	        else {
+	            activeCreep.stationaryCombat();
+	        }
+	    }
+	    else {
+	        let hostiles = creep.room.memory.defense.hostiles;
+	        combatInOrder(hostiles,'heal','rangedHeal','meleeHeal','hybrid','melee','meleeRanged','ranged','claim')
+	    }
+	    
+	    function stationaryCombatInOrder(hostiles){
+	        //Attack hostiles in order specified in optional arguments
+	        if(hostiles == undefined){
+	            return ERR_INVALID_ARGS;
+	        }
+	        let targets = undefined;
+	        if(arguments.length == 1){
+                //No specific order to attacj hostiles in.
+                targets = util.gatherObjectsInArrayFromIds(hostiles);
+                return activeCreep.stationaryCombat(targets);
+	        }
+	        for(let i=1; i<arguments.length; i++){
+	            targets = util.gatherObjectsInArrayFromIds(hostiles,arguments[i]);
+	            if(activeCreep.stationaryCombat(targets) == OK){return OK}
+	        }
+	        return ERR_NOT_FOUND;
+	    }
+	    
+	    function combatInOrder(hostiles){
+	        //Attack hostiles in order specified in optional arguments
+	        if(hostiles == undefined){
+	            return ERR_INVALID_ARGS;
+	        }
+	        let targets = undefined;
+	        if(arguments.length == 1){
+                //No specific order to attacj hostiles in.
+                targets = util.gatherObjectsInArrayFromIds(hostiles);
+                return activeCreep.combat(targets);
+	        }
+	        for(let i=1; i<arguments.length; i++){
+	            targets = util.gatherObjectsInArrayFromIds(hostiles,arguments[i]);
+	            if(activeCreep.combat(targets) == OK){return OK}
+	        }
+	        return ERR_NOT_FOUND;
+	    }	    
+	    
+	}
 };
 
 var gatherObjectsInArrayFromIds = function(objects){

@@ -19,12 +19,14 @@ var util = {
         if(arguments.length == 1){
             //If no subObjects are specified, then get them all.
             for(let subObjectKey in objects){
-                objectsArray = objectsArray.concat(util.getArrayObjectsById(objects[subObjectKey]));
+                if(Array.isArray(objects[subObjectKey])){
+                    objectsArray = objectsArray.concat(util.getArrayObjectsById(objects[subObjectKey]));
+                }
             }
         }
         else {
             for(let i=0; i<arguments.length; i++){
-                if(objects[arguments[i]] == undefined){
+                if(objects[arguments[i]] == undefined || !Array.isArray(objects[arguments[i]])){
                     continue;
                 }
                 objectsArray = objectsArray.concat(util.getArrayObjectsById(objects[arguments[i]]));
