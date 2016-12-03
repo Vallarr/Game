@@ -93,12 +93,22 @@ Spawn.prototype.checkAttack = function(targetRooms,type){
      creepsToSpawn[this.spawn.room.name][type]['ranged'] = 0;
      for(let i=0; i<targetRooms[this.spawn.room.name].length; i++){
          //console.log(JSON.stringify(Memory.rooms[targetRooms[this.spawn.room.name][i]]));
-         if(Memory.rooms[targetRooms[this.spawn.room.name][i]].defense.underAttack && Memory.rooms[targetRooms[this.spawn.room.name][i]].defense.lastAttacker == 'Invader'){
-             //console.log('Room '+ targetRooms[this.spawn.room.name][i] + ' under attack, spawning melees');
-             creepsToSpawn[this.spawn.room.name][type]['melee'] += Math.ceil(Memory.rooms[targetRooms[this.spawn.room.name][i]].defense.hostiles.number/2);
-             creepsToSpawn[this.spawn.room.name][type]['ranged'] += Math.ceil(Memory.rooms[targetRooms[this.spawn.room.name][i]].defense.hostiles.number/2);
-             //console.log('Attackers ' + creepsToSpawn[this.spawn.room.name]['adventurer']['melee']);
-             //console.log('Ranged ' + creepsToSpawn[this.spawn.room.name]['adventurer']['ranged']);
+         if(Memory.rooms[targetRooms[this.spawn.room.name][i]].defense.underAttack){
+             if(Memory.rooms[targetRooms[this.spawn.room.name][i]].defense.lastAttacker == 'Invader'){
+                 //console.log('Room '+ targetRooms[this.spawn.room.name][i] + ' under attack, spawning melees');
+                 creepsToSpawn[this.spawn.room.name][type]['melee'] += Math.ceil(Memory.rooms[targetRooms[this.spawn.room.name][i]].defense.hostiles.number/2);
+                 creepsToSpawn[this.spawn.room.name][type]['ranged'] += Math.ceil(Memory.rooms[targetRooms[this.spawn.room.name][i]].defense.hostiles.number/2);
+                 //console.log('Attackers ' + creepsToSpawn[this.spawn.room.name]['adventurer']['melee']);
+                 //console.log('Ranged ' + creepsToSpawn[this.spawn.room.name]['adventurer']['ranged']);                 
+             }
+             else if(Memory.rooms[targetRooms[this.spawn.room.name][i]].defense.lastAttacker != 'Source Keeper'){
+                 let controller = this.spawn.room.controller;
+                 if(controller && controller.owner && controller.owner.username == 'Vervust'){
+                     let ramparts = this.spawn.room.memory.rampart;
+                     creepsToSpawn[this.spawn.room.name][type]['melee'] = ramparts.melee.length;
+                     creepsToSpawn[this.spawn.room.name][type]['ranged'] = ramparts.ranged.length;
+                 }
+             }
          }
      }
  }
