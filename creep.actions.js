@@ -514,20 +514,20 @@ Creep.prototype.stationaryCombat = function(hostiles){
     if(bodyCount[ATTACK]){
         hostile = util.targetsInRange(hostiles,[this.creep],1);
         if(hostile != OK && hostile != ERR_NOT_FOUND){
-            console.log(this.creep.name + 'attack');
+            //console.log(this.creep.name + 'attack');
             this.creep.attack(hostile);
             rtn = OK;
         }
         else {
             rtn = Math.max(rtn,hostile);
             if(bodyCount[HEAL] && this.creep.hits<this.creep.hitsMax){
-                console.log(this.creep.name + 'heal');
+                //console.log(this.creep.name + 'heal');
                 this.creep.heal(this.creep);
             }
         }        
     }
     else if(bodyCount[HEAL] && this.creep.hits<this.creep.hitsMax){
-        console.log(this.creep.name + 'heal');
+        //console.log(this.creep.name + 'heal');
         this.creep.heal(this.creep);
     }
     
