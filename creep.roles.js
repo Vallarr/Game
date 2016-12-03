@@ -1629,7 +1629,17 @@ var Roles = {
 	            //Look for ramparts near hostile creeps
 	            let ramparts = creep.room.memory.defense.rampart;
 	            //TODO: look at creep role to know which ramparts to take
-	            let rampartsMelee = util.gatherObjectsInArrayFromIds(ramparts,'melee');
+	            let body = countBodyParts([creep]);
+	            let targetRamparts = undefined;
+	            if(body[ATTACK]){
+	                targetRamparts = util.gatherObjectsInArrayFromIds(ramparts,'melee');
+	            }
+	            else if(body[RANGED_ATTACK]){
+	                targetRamparts = util.gatherObjectsInArrayFromIds(ramparts,'ranged');
+	            }
+	            else {
+	                console.log(creep.name + ' has no body parts that can inflict damage');
+	            }
 	            let creepsInRamparts = creep.room.find(FIND_MY_CREEPS, {filter: (cr) => {return creep.memory.rampart}});
 	            let occupiedRamparts = [];
 	            for(let i=0; i<creepsInRamparts.length; i++){
@@ -1638,14 +1648,14 @@ var Roles = {
 	                    occupiedRamparts.push(creepRampart);
 	                }
 	            }
-	            let target = util.findDifferentElement(rampartsMelee,occupiedRamparts);
+	            let target = util.findDifferentElement(targetRamparts,occupiedRamparts);
 	            if(target != ERR_NOT_FOUND){
 	                rampart.push(target);
 	                creep.memory.rampart = target.id;
 	            }
-	            else if(ramaprtsMelee.length) {
+	            else if(targetRamparts.length) {
 	                //Move towards rampart
-	                activeCreep.moveTo(rampartsMelee,5);
+	                activeCreep.moveTo(targetRamparts,5);
 	                return;
 	            }
 	            else {

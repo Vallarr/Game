@@ -1,3 +1,5 @@
+var util = require('utilities');
+
 var creepsToSpawn = {'W32N25':  {settler: {harvester: 2, transporter: 2, repairer: 1, builder: 0, upgrader: 2, melee: 0, miner: 1},
                                 explorer: {harvester: 3, transporter: 3, repairer: 1, builder: 0, reserver: 2, upgrader: 0, melee: 0},
                                 adventurer: {harvester: 3, transporter: 7, repairer: 2, builder: 0, melee: 0, ranged: 0, patroller: 0},
@@ -104,9 +106,15 @@ Spawn.prototype.checkAttack = function(targetRooms,type){
              else if(Memory.rooms[targetRooms[this.spawn.room.name][i]].defense.lastAttacker != 'Source Keeper'){
                  let controller = this.spawn.room.controller;
                  if(controller && controller.owner && controller.owner.username == 'Vervust'){
-                     let ramparts = this.spawn.room.memory.rampart;
-                     creepsToSpawn[this.spawn.room.name][type]['melee'] = ramparts.melee.length;
-                     creepsToSpawn[this.spawn.room.name][type]['ranged'] = ramparts.ranged.length;
+                     if(!room.memory.defense.breached){
+                         let ramparts = this.spawn.room.memory.rampart;
+                         creepsToSpawn[this.spawn.room.name][type]['melee'] = ramparts.melee.length;
+                         creepsToSpawn[this.spawn.room.name][type]['ranged'] = ramparts.ranged.length;                         
+                     }
+                     else {
+                         creepsToSpawn[this.spawn.room.name][type]['melee'] = util.gatherObjectsInArrayFromIds(this.spawn.room.memory.defense.hostiles,'melee','meleeRanged','meleeHeal','hybrid','claim','heal').length;
+                         creepsToSpawn[this.spawn.room.name][type]['ranged'] = util.gatherObjectsInArrayFromIds(this.spawn.room.memory.defense.hostiles,'ranged','rangedHeal').length;
+                     }
                  }
              }
          }

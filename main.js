@@ -74,6 +74,7 @@ module.exports.loop = function () {
             }*/
             //let start = Game.cpu.getUsed();            
             let spawn = new autoSpawn(Game.spawns[name],exploreRooms,adventureRooms);
+            spawn.spawnCreepv2('defender');
             spawn.spawnDedicatedCreep();
             spawn.spawnCreep();
             spawn.spawnExplorerCreep();

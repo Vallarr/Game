@@ -177,9 +177,10 @@ RoomChecks.prototype.defend = function(){
     }
     
     function classifyRamparts(ramparts,defense){
-        let rampart = {melee: [], ranged: [], other: []};
+        //In order for this to work, you have to make sure that enemies cannot attack walls, while out of range of a rampart
+        let rampart = {melee: undefined, ranged: undefined, other: undefined};
         
-        let hostilesRange1 = util.gatherObjectsInArrayFromIds(defense.hostiles,'melee','meleeRanged','meleeHeal','ranged','rangedHeal','heal','claim','hybrid');
+        let hostilesRange1 = util.gatherObjectsInArrayFromIds(defense.hostiles,'melee','meleeRanged','meleeHeal','claim','hybrid');
         let rampartHostilesInRange1 = util.targetsInRange(ramparts,hostilesRange1,1);
         let rampartsWithoutTargets = util.findArrayOfDifferentElements(ramparts,rampartHostilesInRange1);
         let closeRangeHostilesRange3 = util.gatherObjectsInArrayFromIds(defense.hostiles,'melee','meleeRanged','meleeHeal','hybrid');
