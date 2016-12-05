@@ -189,6 +189,11 @@ module.exports.loop = function () {
                         Roles.creepExplorerCombat(Game.creeps[name],adventureRooms);
                     }
                 }  
+                if(Game.creeps[name].memory.role == 'hybrid') {
+                    if(Game.creeps[name].memory.type == 'adventurer'){
+                        Roles.creepExplorerCombat(Game.creeps[name],adventureRooms);
+                    }
+                }                  
                 if(Game.creeps[name].memory.role == 'patroller') {
                     if(Game.creeps[name].memory.type == 'adventurer'){
                         Roles.creepExplorerCombat(Game.creeps[name],adventureRooms);

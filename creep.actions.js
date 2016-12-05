@@ -636,7 +636,7 @@ Creep.prototype.moveTo = function(targets,rangeTarget) {
              swampCost: 10,
              roomCallback: (roomName) => {
                  if(!Game.rooms[roomName]) return;
-                 if(this.creep.memory.role == 'melee' || this.creep.memory.role == 'ranged' || this.creep.memory.role == 'patroller'){
+                 if(this.creep.memory.role == 'melee' || this.creep.memory.role == 'ranged' || this.creep.memory.role == 'hybrid' || this.creep.memory.role == 'patroller'){
                      let costs = Game.rooms[roomName].memory.CombatCostMatrix;
                      if(costs){
                          return PathFinder.CostMatrix.deserialize(costs);
