@@ -67,7 +67,9 @@ var plannedStructures = [{room: 'W32N25', buildings:
                                                                 y: [24,28,32,23,25,27,29,31,32]}, RCL: 6},          
                         {structureType: STRUCTURE_ROAD, pos: {  x: [9,9,9,8,8,8,7,7,7],
                                                                 y: [26,30,33,29,31,33,30,32,34]}, RCL: 7},                                                            
-                        {structureType: STRUCTURE_STORAGE, pos: {x: [21], y: [29]}, RCL:4}]}
+                        {structureType: STRUCTURE_STORAGE, pos: {x: [21], y: [29]}, RCL:4}]},
+                        {room: 'W35N25', buildings: 
+                        [{structureType: STRUCTURE_CONTAINER, pos: {x: [11,16,38], y: [45,16,12]}, RCL: 0}]}                        
                         ];
  
  var buildStructures = {
@@ -82,7 +84,14 @@ var plannedStructures = [{room: 'W32N25', buildings:
             
             while(structures.length && structures[0].buildings.length){
                 let struct = structures[0].buildings.shift();
-                if(struct.RCL <= Game.rooms[name].controller.level){
+                let level = undefined;
+                if(Game.rooms[name].controller){
+                    level = Game.rooms[name].controller.level;
+                }
+                else {
+                    level = 0;
+                }                
+                if(struct.RCL <= level){
                     let nBuild = Game.rooms[name].find(FIND_STRUCTURES, {
                         filter: (structure) => {
                             return (structure.structureType == struct.structureType);
@@ -93,7 +102,7 @@ var plannedStructures = [{room: 'W32N25', buildings:
                             return (site.structureType == struct.structureType);
                         }
                     }).length;
-                    let nAllowed = CONTROLLER_STRUCTURES[struct.structureType][Game.rooms[name].controller.level];
+                    let nAllowed = CONTROLLER_STRUCTURES[struct.structureType][level];
                     //console.log(struct.structureType + ' ' + nBuild + ' ' + nToBeBuild + ' ' + nAllowed);
                     for(let i=0; i<struct.pos.x.length && (nBuild + nToBeBuild) < nAllowed; i++){
                         let lookStruct = [];

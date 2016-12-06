@@ -1,7 +1,7 @@
 var creepsToSpawn = {'W32N25':  {settler: {harvester: 2, transporter: 2, repairer: 1, builder: 0, upgrader: 2, melee: 0, miner: 1},
                                 explorer: {harvester: 3, transporter: 3, repairer: 1, builder: 0, reserver: 2, upgrader: 0, melee: 0},
                                 adventurer: {harvester: 3, transporter: 7, repairer: 2, builder: 0, melee: 0, ranged: 0, hybrid: 0, patroller: 0}},
-                     'W33N26':  {settler: {harvester: 2, transporter: 2, repairer: 1, builder: 0, upgrader: 2, melee: 0, miner: 0},
+                     'W33N26':  {settler: {harvester: 2, transporter: 2, repairer: 1, builder: 0, upgrader: 2, melee: 0, miner: 1},
                                 explorer: {harvester: 0, transporter: 0, repairer: 0, builder: 0, reserver: 0, upgrader: 0, melee: 0},
                                 adventurer: {harvester: 0, transporter: 0, repairer: 0, builder: 0, melee: 0, ranged: 0, hybrid: 0, patroller: 0}}
                     };
