@@ -1597,7 +1597,113 @@ var Roles = {
                 creep.say('All Clear');
             }
         }
-	}	
+	},
+	creepExplorerPatroll: function(creep,exploreRooms){
+	    var activeCreep = new creepActions(creep);
+	    
+        if(activeCreep.moved){
+            //console.log(creep.name + ' really moved from memory');
+            activeCreep.stationaryCombat();
+            return;
+        }
+
+        var orRoom = creep.memory.origin;
+        //console.log(orRoom);
+        if(exploreRooms == undefined || exploreRooms[orRoom] == undefined || !exploreRooms[orRoom].length){
+            console.log('No target rooms specified for' + creep.memory.role + ' explorer ' + creep.name + ' of room ' + creep.memory.origin);
+            return;
+        }
+        var targetRooms = exploreRooms[orRoom].filter((rm) => {
+            let horCoDev = Math.abs(Number(rm.substr(1,2))%10-5);
+            let vertCoDev = Math.abs(Number(rm.substr(4,2))%10-5);
+            //console.log('HorCoDev ' + horCoDev + ' vert ' + vertCoDev);
+            return horCoDev <= 1 && vertCoDev <= 1 && (horCoDev != 0 || vertCoDev != 0);
+        });
+        
+	    if(creep.ticksToLive < 300){
+	        creepsToSpawn[creep.memory.origin][creep.memory.type][creep.memory.role] = targetRooms.length + 1;
+	    }
+	    else if(creep.ticksToLive == 1){
+	        creepsToSpawn[creep.memory.origin][creep.memory.type][creep.memory.role] = targetRooms.length;
+	    }
+        
+        let patrollRoom = creep.memory.targetRoom;
+        if(patrollRoom){
+            if(!Game.rooms[patrollRoom]){
+                //console.log(creep.name + ' Going to attacked room');
+                activeCreep.moveToRoom(attackedRoom);
+                activeCreep.stationaryCombat();
+                return;
+            }
+        }
+        else {
+            let patrollerCreeps = _.filter(Game.creeps,(cr) => {return cr.role == 'patroller'});
+            let patrolledRooms = [];
+            for(let i=0; i< patrollerCreeps.length; i++){
+                if(patrollerCreeps.memory.targetRoom){
+                    patrolledRooms.push(patrollerCreeps.memory.targetRoom);
+                }
+            }
+            //console.log('Targets ' + targetRooms);
+            //console.log('Patrolled ' + patrolledRooms);
+            patrollRoom = util.findDifferentString(targetRooms,patrolledRooms);
+            if(patrollRoom != ERR_NOT_FOUND){
+                //console.log('Found room ' + patrollRoom);
+                creep.memory.targetRoom = patrollRoom;
+            }
+            else {
+                activeCreep.moveToRoom(exploreRooms[orRoom][0]);
+                activeCreep.stationaryCombat();                
+                return;
+            }
+        }
+        
+        let room = Game.rooms[patrollRoom];
+        //console.log('Room ' + room);
+        if(!room){
+            //console.log(creep.name + ' Going to attacked room');
+            activeCreep.moveToRoom(patrollRoom);
+            activeCreep.stationaryCombat();
+            return;
+        }
+        if(creep.room.name == patrollRoom){
+            let hostiles = util.gatherObjectsInArrayFromIds(room.memory.defense.hostiles);
+            //console.log('Hostiles ' + hostiles);
+            if(activeCreep.combat(hostiles,creep.hitsMax) == ERR_NOT_FOUND){
+                let woundedHarvesters = creep.room.find(FIND_MY_CREEPS, {filter: (creep) => {return creep.memory.role == 'harvester' && creep.hits < creep.hitsMax}});
+                if(activeCreep.healOther(woundedHarvesters) == ERR_NOT_FOUND){
+                    let spawns = creep.room.find(FIND_HOSTILE_STRUCTURES, {filter: (str) => {return str.structureType == STRUCTURE_KEEPER_LAIR}});
+                    let nextSpawn = spawns.reduce((a,b) => {
+                        //console.log('Spawn ' + JSON.stringify(a));
+                        if(a.ticksToSpawn){
+                            if(b.ticksToSpawn){
+                                if(a.ticksToSpawn < b.ticksToSpawn){
+                                    return a;
+                                }
+                                else {
+                                    return b;
+                                }
+                            }
+                            else {
+                                return a;
+                            }
+                        }
+                        else {
+                            return b;
+                        }
+                    });
+                    //console.log('All hostiles dead. Going to ' + nextSpawn);
+                    activeCreep.moveTo([nextSpawn],1);
+                    activeCreep.stationaryCombat();                    
+                }
+            }
+        }
+        else {
+            //console.log('Moving to patroller room');
+            activeCreep.moveToRoom(patrollRoom);
+            activeCreep.stationaryCombat();
+        }
+	}
 };
 
 var gatherObjectsInArrayFromIds = function(objects){

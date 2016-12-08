@@ -13,6 +13,7 @@ var adventureRooms = {'W32N25': ['W35N25','W34N25'], 'W33N26': []};
 var claimRooms = {'W32N25': {'W33N26': true}};
                    
 module.exports.loop = function () {
+    //console.log('Spawn ' + JSON.stringify(creepsToSpawn));
     //console.log('Loading scripts took ' + Game.cpu.getUsed() + ' cpu units');
     /*var stringified = JSON.stringify(Memory);
     var startCpu = Game.cpu.getUsed();
@@ -196,7 +197,8 @@ module.exports.loop = function () {
                 }                  
                 if(Game.creeps[name].memory.role == 'patroller') {
                     if(Game.creeps[name].memory.type == 'adventurer'){
-                        Roles.creepExplorerCombat(Game.creeps[name],adventureRooms);
+                        //Roles.creepExplorerCombat(Game.creeps[name],adventureRooms);
+                        Roles.creepExplorerPatroll(Game.creeps[name],adventureRooms);
                     }
                 }                  
                 //console.log(creep.memory.role + ' creep ' + name + ' used ' + Game.cpu.getUsed()-creepCPUStart + ' cpu units this tick');

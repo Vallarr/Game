@@ -50,10 +50,10 @@ var util = {
     },
 
     getArrayObjectsById: function(ids){
+        let objects = [];        
         if(!Array.isArray(ids)){
-            return ERR_INVALID_ARGS;
+            return objects;
         }
-        let objects = [];
         for(let i=0; i<ids.length; i++){
             objects.push(Game.getObjectById(ids[i]));
             if(objects[objects.length-1] == undefined){
@@ -98,20 +98,26 @@ var util = {
     
     findDifferentElement: function(array1,array2){
         //Find and return an element in array1 that is not present in array 2
-        if(array1 == undefined || array2 == undefined){
-            return ERR_INVALID_ARGS;
-        }
-        else if(!Array.isArray(array1) || !Array.isArray(array2)){
-            return ERR_INVALID_ARGS;
+        return util.findDifferent(array1,array2,(a,b) => {return a.id == b.id});
+    },
+    
+    findDifferentString: function(array1,array2){
+        //Find and return a string in array 1 that is not present in array 2
+        return util.findDifferent(array1,array2,(a,b) => {return a == b});
+    },
+    
+    findDifferent: function(array1,array2,f){
+        //Find and return an element in array1 that is not present in array2
+        //Whether or not 2 elements are the same is evaluated by function f
+        if(array1 == undefined || array2 == undefined || !Array.isArray(array1) || ! Array.isArray(array2)){
+            return ERR_INVALID_ARGS
         }
         
         let match = false;
         for(let i=0; i<array1.length; i++){
             match = false;
             for(let j=0; j<array2.length && !match; j++){
-                if(array1[i].id == array2[j].id){
-                    match = true;
-                }
+                match = f(array1[i],array2[j]);
             }
             if(!match){
                 return array1[i];
