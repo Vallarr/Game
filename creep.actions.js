@@ -558,7 +558,10 @@ Creep.prototype.healOther = function(targets){
     if(!targets.length){
         return ERR_NOT_FOUND;
     }
-    
+    let bodyCount = util.countBodyParts(this.creep)[0];
+    if(!bodyCount[HEAL]){
+        return ERR_NOT_FOUND;
+    }
     let target = this.moveTo(targets,3);
     let rtn = undefined;
     if(target != OK && target != ERR_NOT_FOUND){

@@ -707,9 +707,9 @@ var Roles = {
         let targetRoom = creep.memory.targetRoom;
         //console.log(creep.name + ' ' + targetRoom);
         if(targetId && creep.memory.getting){
-            let getDropped = activeCreep.collectDroppedResource(RESOURCE_ENERGY)
+            //let getDropped = activeCreep.collectDroppedResource(RESOURCE_ENERGY)
             //console.log(creep.name + ' drop ' + getDropped);
-            if(getDropped == ERR_NOT_FOUND){
+            //if(getDropped == ERR_NOT_FOUND){
                 //console.log(creep.name + ' harvesting target ' + Game.getObjectById(targetId));
                 if(!Game.rooms[targetRoom]){
                     activeCreep.moveToRoom(targetRoom);
@@ -722,13 +722,13 @@ var Roles = {
                     }            
                 }
                 return;
-            }
+            /*}
             else if(getDropped == OK){
                 delete creep.memory.target;
             }
             else if(getDropped == 1){
                 return;
-            }
+            }*/
         }
         if(targetId && !creep.memory.getting){
             //console.log(creep.name + ' transfering to target' + Game.getObjectById(targetId));
@@ -740,7 +740,7 @@ var Roles = {
         }
         
         if(creep.memory.collecting){
-            if(activeCreep.collectDroppedResource(RESOURCE_ENERGY) == ERR_NOT_FOUND){
+            //if(activeCreep.collectDroppedResource(RESOURCE_ENERGY) == ERR_NOT_FOUND){
                 let filledSourceContainers = [];
                 let darkRooms = [];
                 for(let i=0; i<targetRooms.length; i++){
@@ -801,7 +801,7 @@ var Roles = {
                 }
                 //console.log('Containers: ' + filledSourceContainers);
                 //activeCreep.harvestContainer(filledSourceContainers);
-            }
+            //}
         }
         else {
             creep.memory.getting = false;
@@ -1539,11 +1539,14 @@ var Roles = {
         
         let attackedRoom = creep.memory.targetRoom;
         if(attackedRoom){
+            //console.log(creep.name + ' in room');
             if(!Memory.rooms[attackedRoom].defense.underAttack){
-                console.log(creep.memory.role + ' creep ' + creep.name + ' its room ' + attackedRoom + ' is no longer under attack. Moving to different room.');
-                activeCreep.stationaryCombat();
-                delete creep.memory.targetRoom;
-                return;
+                if(activeCreep.healOther() == ERR_NOT_FOUND){
+                    console.log(creep.memory.role + ' creep ' + creep.name + ' its room ' + attackedRoom + ' is no longer under attack. Moving to different room.');
+                    activeCreep.stationaryCombat();
+                    delete creep.memory.targetRoom;
+                }
+                return;                 
             }
             if(!Game.rooms[attackedRoom]){
                 //console.log(creep.name + ' Going to attacked room');
@@ -1573,8 +1576,10 @@ var Roles = {
                 }
                 else {
                     //console.log(creep.memory.role + ' creep ' + creep.name + ' has no room to go to');
-                    if(targetRooms.length){activeCreep.moveToRoom(targetRooms[0])};
-                    activeCreep.stationaryCombat();
+                    if(activeCreep.healOther() == ERR_NOT_FOUND){
+                        if(targetRooms.length){activeCreep.moveToRoom(targetRooms[0])};
+                        activeCreep.stationaryCombat();
+                    }
                     return;
                 }
             }
@@ -1623,7 +1628,7 @@ var Roles = {
 	    if(creep.ticksToLive < 300){
 	        creepsToSpawn[creep.memory.origin][creep.memory.type][creep.memory.role] = targetRooms.length + 1;
 	    }
-	    else if(creep.ticksToLive == 1){
+	    else if(creep.ticksToLive == 1 || creep.ticksToLive >= 300){
 	        creepsToSpawn[creep.memory.origin][creep.memory.type][creep.memory.role] = targetRooms.length;
 	    }
         
