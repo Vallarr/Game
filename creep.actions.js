@@ -16,7 +16,10 @@ var Creep = function(creep) {
         //console.log(path);
         if(creep.memory.path && creep.memory.path.length){
             let nextStep = creep.memory.path.shift();
-            if(creep.pos.inRangeTo(nextStep,1) && creep.move(creep.pos.getDirectionTo(nextStep.x,nextStep.y)) == OK){
+            /*if(creep.name == 'Isaiah'){
+                console.log('Next ' + JSON.stringify(nextStep) + ' position ' + creep.pos + ' inRange ' + creep.pos.inRangeTo(nextStep,1));
+            }*/
+            if((creep.pos.inRangeTo(nextStep,1)) && creep.move(creep.pos.getDirectionTo(nextStep.x,nextStep.y)) == OK){
                 this.moved = true;        
                 //console.log(creep.name + ' moved from memory');
             }
@@ -33,7 +36,7 @@ var Creep = function(creep) {
         this.moved = false;
     }
     
-    if(!this.moved && creep.room.memory.defense.underAttack && creep.memory.role != 'melee' && creep.memory.role != 'ranged' && creep.memory.role != 'hybrid' && creep.memory.role != 'patroller' && this.flee() != ERR_NOT_FOUND){
+    if(!this.moved && creep.room.memory.defense.underAttack && creep.memory.role != 'melee' && creep.memory.role != 'ranged' && creep.memory.role != 'hybrid' && creep.memory.role != 'patroller' && creep.memory.role != 'patrollerRanged' && this.flee() != ERR_NOT_FOUND){
         this.moved = true;
         return;
     }    
@@ -143,37 +146,60 @@ Creep.prototype.withdrawResource = function(targets,resourceType,amount){
 };
 
 Creep.prototype.collectDroppedResource = function(resourceType, resource){
+    let res = undefined;
     if(resource == undefined){
-        if(resourceType == undefined){
-            resource = this.creep.room.find(FIND_DROPPED_RESOURCES);
+        if(this.creep.memory.getDropped){
+            res = [Game.getObjectById(this.creep.memory.getDropped)];
+            if(res[0] == undefined){
+                delete this.creep.memory.getDropped;
+                return ERR_NOT_FOUND;
+            }
         }
         else {
-            resource = this.creep.room.find(FIND_DROPPED_RESOURCES, {
-                filter: (resource) => {
-                    return (resource.resourceType == resourceType);
+            if(resourceType == undefined){
+                resource = util.gatherObjectsInArrayFromIds(this.creep.room.memory,'dropped');
+            }
+            else {
+                resource = util.gatherObjectsInArrayFromIds(this.creep.room.memory,'dropped').filter((resource) => {return resource.resourceType == resourceType});
+            }
+            resource = resource.filter((rs) => {
+                let resourceHarvestPower = HARVEST_POWER;
+                if(rs.resourceType != RESOURCE_ENERGY){
+                    resourceHarvestPower = HARVEST_MINERAL_POWER;
                 }
+                return rs.amount > Math.max(5,this.creep.body.filter(function(bP){ return bP.type == WORK}).length) * resourceHarvestPower * Math.ceil(Math.sqrt(Math.pow(this.creep.pos.x-rs.pos.x,2) + Math.pow(this.creep.pos.y-rs.pos.y,2)));
             });
+            if(!resource.length){return ERR_NOT_FOUND}
+            
+            let targetedResources = util.targetObjectsOfCreeps('getDropped',this.creep.room);
+            let notTargetedResources = util.findArrayOfDifferentElements(resource,targetedResources);
+            res = this.creep.pos.findClosestByRange(notTargetedResources);
+            //console.log('Resources in room ' + this.creep.room.name + ' ' + resource);
+            //console.log('Targeted resources ' + targetedResources);
+            //console.log('Available resources ' + notTargetedResources);
+            //console.log('Closest resource for creep ' + this.creep.name + ' in room ' + this.creep.room.name + ' ' + res);
+            if(res){
+                this.creep.memory.getDropped = res.id;
+            } 
+            else {
+                return ERR_NOT_FOUND;
+            }
         }
     }
     else if(!Array.isArray(resource)){
-        resource = [resource];
+        res = [resource];
     }
-    if(!resource.length){
+    else {
+        res = resource;
+    }
+    if(!res.length){
         return ERR_NOT_FOUND;
     }
-    for(let i=0; i<resource.length; i++){
-        if(resource[i].amount < Math.max(5,this.creep.body.filter(function(bP){ return bP.type == WORK}).length) * HARVEST_POWER * Math.ceil(Math.sqrt(Math.pow(this.creep.pos.x-resource[i].pos.x,2) + Math.pow(this.creep.pos.y-resource[i].pos.y,2)))){
-            resource.splice(i,1);
-            i--;
-            //console.log('Resource ' + res.resourceType + ' found at: ' + res.pos + ' but not worth it');
-        }
-    }    
-    if(!resource.length){
-        return ERR_NOT_FOUND;
-    }    
-    //console.log('Resource ' + resource[0].resourceType + ' found at: ' + resource[0].pos)
-    let res = this.moveTo(resource,1);
-    if(!(res == OK || res == ERR_NOT_FOUND)){
+    //console.log(this.creep.name + ' getting dropped resource ' + res);
+    
+    res = this.moveTo(res,1);
+    if(res != OK && res != ERR_NOT_FOUND){
+        delete this.creep.memory.getDropped;
         return this.creep.pickup(res);
     }
     if(res < 0){
@@ -677,7 +703,7 @@ Creep.prototype.moveTo = function(targets,rangeTarget) {
              swampCost: 10,
              roomCallback: (roomName) => {
                  if(!Game.rooms[roomName]) return;
-                 if(this.creep.memory.role == 'melee' || this.creep.memory.role == 'ranged' || this.creep.memory.role == 'hybrid' || this.creep.memory.role == 'patroller'){
+                 if(this.creep.memory.role == 'melee' || this.creep.memory.role == 'ranged' || this.creep.memory.role == 'hybrid' || this.creep.memory.role == 'patroller' || this.creep.memory.role == 'patrollerRanged'){
                      let costs = Game.rooms[roomName].memory.CombatCostMatrix;
                      if(costs){
                          return PathFinder.CostMatrix.deserialize(costs);
@@ -729,7 +755,7 @@ Creep.prototype.moveToRoom = function(roomName){
         //let rtn = this.moveTo([{pos: {x: 24,y: 24,'roomName': roomName}}], 24);
         //let time = Game.cpu.getUsed() - start;
         //console.log(creep.name + ' going to known room cost ' + time);
-        return this.moveTo([{pos: {x: 24,y: 24,'roomName': roomName}}], 24);
+        return this.moveTo([{pos: {x: 24,y: 24,'roomName': roomName}}], 23);
     }
 };
 
@@ -745,7 +771,7 @@ Creep.prototype.flee = function(hostiles, fleeRange){
         return ERR_NOT_FOUND;
     }
     if(fleeRange == undefined){
-        fleeRange = 5;
+        fleeRange = 4;
     }
     //console.log(this.creep.name + ' Hostiles to flee from ' + hostiles);
     

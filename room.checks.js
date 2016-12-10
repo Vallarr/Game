@@ -30,6 +30,7 @@ RoomChecks.prototype.check = function(){
     this.assignSources();
     this.assignContainers();
     this.assignLinks();
+    this.searchDroppedResources();
 };
 
 RoomChecks.prototype.defend = function(){
@@ -404,6 +405,12 @@ RoomChecks.prototype.assignLinks = function(){
     if(!(linkTypes[this.room.name] == undefined)){
         this.room.memory.links = linkTypes[this.room.name];
     }
-}
+};
+
+RoomChecks.prototype.searchDroppedResources = function(){
+    //Look for all dropped resources in the room
+    let droppedResources = this.room.find(FIND_DROPPED_RESOURCES);
+    this.room.memory.dropped = util.gatherIdsInArrayFromObjects(droppedResources);
+};
 
 module.exports = RoomChecks;

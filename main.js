@@ -195,7 +195,7 @@ module.exports.loop = function () {
                         Roles.creepExplorerCombat(Game.creeps[name],adventureRooms);
                     }
                 }                  
-                if(Game.creeps[name].memory.role == 'patroller') {
+                if(Game.creeps[name].memory.role == 'patroller' || Game.creeps[name].memory.role == 'patrollerRanged') {
                     if(Game.creeps[name].memory.type == 'adventurer'){
                         //Roles.creepExplorerCombat(Game.creeps[name],adventureRooms);
                         Roles.creepExplorerPatroll(Game.creeps[name],adventureRooms);
@@ -272,4 +272,7 @@ module.exports.loop = function () {
     catch(err){
         console.log('Error in test script');
     }
+    
+    //console.log(JSON.stringify(util.targetRoomsOfCreeps('targetRoom')));
+    //console.log(util.targetObjectsOfCreeps('target'));
 }

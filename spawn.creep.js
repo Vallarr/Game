@@ -1,21 +1,21 @@
 global.creepsToSpawn = {'W32N25':  {settler: {harvester: 2, transporter: 2, repairer: 1, builder: 0, upgrader: 2, melee: 0, miner: 1},
                                     explorer: {harvester: 3, transporter: 3, repairer: 1, builder: 0, reserver: 2, upgrader: 0, melee: 0},
-                                    adventurer: {harvester: 6, transporter: 10, repairer: 2, builder: 0, melee: 0, ranged: 0, hybrid: 0, patroller: 1}},
+                                    adventurer: {harvester: 6, transporter: 10, repairer: 1, builder: 0, melee: 0, ranged: 0, hybrid: 0, patroller: 2, patrollerRanged: 2}},
                         'W33N26':  {settler: {harvester: 2, transporter: 2, repairer: 1, builder: 0, upgrader: 2, melee: 0, miner: 1},
                                     explorer: {harvester: 0, transporter: 0, repairer: 0, builder: 0, reserver: 0, upgrader: 0, melee: 0},
-                                    adventurer: {harvester: 0, transporter: 0, repairer: 1, builder: 0, melee: 0, ranged: 0, hybrid: 0, patroller: 0}}
+                                    adventurer: {harvester: 3, transporter: 4, repairer: 1, builder: 0, melee: 0, ranged: 0, hybrid: 0, patroller: 1, patrollerRanged: 1}}
                         };
 var defaultCreepBodies =   {settler:   {harvester: [WORK,WORK,WORK,WORK,WORK,CARRY,MOVE,MOVE,MOVE],
                                         transporter: [CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE],
                                         repairer: [WORK,CARRY,WORK,CARRY,MOVE,WORK,CARRY,WORK,CARRY,MOVE,WORK,CARRY,WORK,CARRY,MOVE,MOVE,MOVE,MOVE],
                                         builder: [WORK,CARRY,WORK,CARRY,MOVE,WORK,CARRY,WORK,CARRY,MOVE,WORK,CARRY,WORK,CARRY,MOVE,MOVE,MOVE,MOVE],
-                                        upgrader: [WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,CARRY,CARRY,MOVE,MOVE,MOVE],
+                                        upgrader: [WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE],
                                         miner: [WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,CARRY,CARRY,MOVE,MOVE,MOVE]},
                             explorer:  {harvester: [WORK,WORK,WORK,WORK,WORK,CARRY,MOVE,MOVE,MOVE],
                                         transporter: [CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE],
-                                        repairer: [WORK,CARRY,WORK,CARRY,MOVE,WORK,CARRY,WORK,CARRY,MOVE,WORK,CARRY,WORK,CARRY,MOVE,WORK,CARRY,WORK,CARRY,MOVE,MOVE,MOVE,MOVE,MOVE],
-                                        builder: [WORK,CARRY,WORK,CARRY,MOVE,WORK,CARRY,WORK,CARRY,MOVE,WORK,CARRY,WORK,CARRY,MOVE,WORK,CARRY,WORK,CARRY,MOVE,MOVE,MOVE,MOVE,MOVE],
-                                        reserver: [CLAIM,CLAIM,MOVE,MOVE], 
+                                        repairer: [WORK,CARRY,WORK,CARRY,MOVE,WORK,CARRY,WORK,CARRY,MOVE,WORK,CARRY,WORK,CARRY,MOVE,MOVE,MOVE,MOVE],
+                                        builder: [WORK,CARRY,WORK,CARRY,MOVE,WORK,CARRY,WORK,CARRY,MOVE,WORK,CARRY,WORK,CARRY,MOVE,MOVE,MOVE,MOVE],
+                                        reserver: [CLAIM,CLAIM,MOVE,MOVE],
                                         upgrader: [WORK,WORK,WORK,WORK,WORK,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE,MOVE],
                                         melee: [TOUGH,TOUGH,TOUGH,TOUGH,ATTACK,ATTACK,ATTACK,ATTACK,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE]},
                             adventurer:{harvester: [WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE],
@@ -25,34 +25,13 @@ var defaultCreepBodies =   {settler:   {harvester: [WORK,WORK,WORK,WORK,WORK,CAR
                                         melee: [TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE],
                                         ranged: [TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE],
                                         hybrid: [MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,RANGED_ATTACK,ATTACK,RANGED_ATTACK,ATTACK,RANGED_ATTACK,ATTACK,RANGED_ATTACK,ATTACK,RANGED_ATTACK,ATTACK,RANGED_ATTACK,ATTACK,RANGED_ATTACK,ATTACK,RANGED_ATTACK,ATTACK,RANGED_ATTACK,ATTACK,RANGED_ATTACK,ATTACK,HEAL,HEAL,HEAL,HEAL,HEAL],
-                                        patroller: [MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,HEAL,HEAL,HEAL,HEAL,HEAL]}
+                                        patroller: [MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,HEAL,HEAL,HEAL,HEAL,HEAL],
+                                        patrollerRanged: [MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,HEAL,HEAL,HEAL,HEAL,HEAL]}
                             };                  
-var creepBodies =   {'W32N25': {settler:   {harvester: [WORK,WORK,WORK,WORK,WORK,CARRY,MOVE,MOVE,MOVE],
-                                            transporter: [CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE],
-                                            repairer: [CARRY,WORK,CARRY,WORK,CARRY,WORK,CARRY,WORK,CARRY,WORK,MOVE,MOVE,MOVE,MOVE,MOVE],
-                                            builder: [CARRY,WORK,CARRY,CARRY,WORK,CARRY,CARRY,WORK,MOVE,MOVE,MOVE,MOVE],
-                                            upgrader: [WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,CARRY,CARRY,MOVE,MOVE,MOVE],
-                                            miner: [WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,CARRY,CARRY,MOVE,MOVE,MOVE]},
-                                explorer:  {harvester: [WORK,WORK,WORK,WORK,WORK,CARRY,MOVE,MOVE,MOVE],
-                                            transporter: [CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE],
-                                            repairer: [CARRY,WORK,CARRY,WORK,CARRY,WORK,CARRY,WORK,CARRY,WORK,MOVE,MOVE,MOVE,MOVE,MOVE],
-                                            builder: [WORK,CARRY,CARRY,WORK,CARRY,CARRY,WORK,CARRY,CARRY,WORK,MOVE,MOVE,MOVE,MOVE,MOVE],
-                                            reserver: [CLAIM,CLAIM,MOVE,MOVE], 
-                                            upgrader: [WORK,WORK,WORK,WORK,WORK,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE,MOVE],
-                                            melee: [TOUGH,TOUGH,TOUGH,TOUGH,ATTACK,ATTACK,ATTACK,ATTACK,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE]}},
-                     'W33N26': {settler:   {harvester: [WORK,WORK,WORK,WORK,WORK,CARRY,MOVE,MOVE,MOVE],
-                                            transporter: [CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE],
-                                            repairer: [CARRY,WORK,CARRY,WORK,CARRY,WORK,CARRY,WORK,MOVE,MOVE,MOVE,MOVE],
-                                            builder: [CARRY,WORK,CARRY,CARRY,WORK,CARRY,CARRY,WORK,MOVE,MOVE,MOVE,MOVE],
-                                            upgrader: [WORK,WORK,WORK,WORK,WORK,CARRY,MOVE,MOVE,MOVE],
-                                            miner: [WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,CARRY,CARRY,MOVE,MOVE,MOVE]},
-                                explorer:  {harvester: [WORK,WORK,WORK,WORK,WORK,CARRY,MOVE,MOVE,MOVE],
-                                            transporter: [CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE],
-                                            repairer: [CARRY,WORK,CARRY,WORK,CARRY,WORK,CARRY,WORK,CARRY,WORK,MOVE,MOVE,MOVE,MOVE,MOVE],
-                                            builder: [WORK,CARRY,CARRY,WORK,CARRY,CARRY,WORK,CARRY,CARRY,WORK,MOVE,MOVE,MOVE,MOVE,MOVE],
-                                            reserver: [CLAIM,CLAIM,MOVE,MOVE],
-                                            upgrader: [WORK,WORK,WORK,WORK,WORK,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE,MOVE],
-                                            melee: [TOUGH,TOUGH,TOUGH,TOUGH,ATTACK,ATTACK,ATTACK,ATTACK,MOVE,MOVE,MOVE,MOVE]}}                      
+var creepBodies =   {'W32N25': {settler:   {},
+                                explorer:  {}},
+                     'W33N26': {settler:   {},
+                                explorer:  {}}                      
                     };
  
  
@@ -63,11 +42,12 @@ var creepBodies =   {'W32N25': {settler:   {harvester: [WORK,WORK,WORK,WORK,WORK
      this.adventureRooms = adventureRooms;
      this.checkExplorerAttack();
      this.checkAttack(adventureRooms,'adventurer');
+     //console.log('Spawn checked ' + this.spawn.name);
      this.roles = ['melee','harvester','builder','repairer','upgrader'];
      this.roles.settler = ['harvester','transporter','repairer','builder','upgrader','melee','miner'];
      this.roles.defender = ['repairer','builder','melee','ranged']
      this.roles.explorer = ['melee','harvester','transporter','repairer','builder','reserver','upgrader'];
-     this.roles.adventurer = ['hybrid','ranged','patroller','melee','harvester','transporter','repairer','builder'];
+     this.roles.adventurer = ['hybrid','ranged','patroller','patrollerRanged','melee','harvester','transporter','repairer','builder'];
  };
  
  Spawn.prototype.checkExplorerAttack = function(){
@@ -91,9 +71,9 @@ Spawn.prototype.checkAttack = function(targetRooms,type){
          //console.log(JSON.stringify(Memory.rooms[targetRooms[this.spawn.room.name][i]]));
          if(Memory.rooms[targetRooms[this.spawn.room.name][i]].defense.underAttack && Memory.rooms[targetRooms[this.spawn.room.name][i]].defense.lastAttacker == 'Invader'){
              //console.log('Room '+ targetRooms[this.spawn.room.name][i] + ' under attack, spawning melees');
-             creepsToSpawn[this.spawn.room.name][type]['melee'] += Math.ceil(Memory.rooms[targetRooms[this.spawn.room.name][i]].defense.hostiles.number/5);
-             creepsToSpawn[this.spawn.room.name][type]['ranged'] += Math.ceil(Memory.rooms[targetRooms[this.spawn.room.name][i]].defense.hostiles.number/5);
-             creepsToSpawn[this.spawn.room.name][type]['hybrid'] = 1;
+             //creepsToSpawn[this.spawn.room.name][type]['melee'] += Math.ceil(Memory.rooms[targetRooms[this.spawn.room.name][i]].defense.hostiles.number/5);
+             //creepsToSpawn[this.spawn.room.name][type]['ranged'] += Math.ceil(Memory.rooms[targetRooms[this.spawn.room.name][i]].defense.hostiles.number/5);
+             //creepsToSpawn[this.spawn.room.name][type]['hybrid'] = 1;
              //console.log('Attackers ' + creepsToSpawn[this.spawn.room.name]['adventurer']['melee']);
              //console.log('Ranged ' + creepsToSpawn[this.spawn.room.name]['adventurer']['ranged']);
          }
@@ -115,10 +95,12 @@ Spawn.prototype.checkAttack = function(targetRooms,type){
      let avEnergy = this.spawn.room.memory.energy[this.spawn.name] + this.spawn.room.memory.energy.extensions.available;
      
      let body = undefined;
-     if(!creepBodies[this.spawn.room.name] || ! creepBodies[this.spawn.room.name][creepType] || !creepBodies[this.spawn.room.name][creepType][needSpawn.role]){
+     if(!creepBodies[this.spawn.room.name] || !creepBodies[this.spawn.room.name][creepType] || !creepBodies[this.spawn.room.name][creepType][needSpawn.role]){
+         //console.log(this.spawn.name + ' using default');
          body = defaultCreepBodies[creepType][needSpawn.role];
      }
      else {
+         //console.log(this.spawn.name + ' not using default');
          body = creepBodies[this.spawn.room.name][creepType][needSpawn.role];
      }
      let bodyCost = this.bodyCost(body);
@@ -211,7 +193,15 @@ Spawn.prototype.spawnDedicatedCreep = function(){
         return;
     }
     this.spawning = true;
-    let body = creepBodies[this.spawn.room.name]['settler'][needSpawn.role];
+     let body = undefined;
+     if(!creepBodies[this.spawn.room.name] || !creepBodies[this.spawn.room.name]['settler'] || !creepBodies[this.spawn.room.name]['settler'][needSpawn.role]){
+         //console.log(this.spawn.name + ' using default');
+         body = defaultCreepBodies['settler'][needSpawn.role];
+     }
+     else {
+         //console.log(this.spawn.name + ' not using default');
+         body = creepBodies[this.spawn.room.name]['settler'][needSpawn.role];
+     }
     let bodyCost = this.bodyCost(body);
 
     //Check for available energy vs energy capacity
@@ -267,7 +257,15 @@ Spawn.prototype.spawnExplorerCreep = function(){
         return;
     }
 
-    let body = creepBodies[this.spawn.room.name]['explorer'][needSpawn.role];
+     let body = undefined;
+     if(!creepBodies[this.spawn.room.name] || !creepBodies[this.spawn.room.name]['explorer'] || !creepBodies[this.spawn.room.name]['explorer'][needSpawn.role]){
+         //console.log(this.spawn.name + ' using default');
+         body = defaultCreepBodies['explorer'][needSpawn.role];
+     }
+     else {
+         //console.log(this.spawn.name + ' not using default');
+         body = creepBodies[this.spawn.room.name]['explorer'][needSpawn.role];
+     }
     let bodyCost = this.bodyCost(body);
     
     //Check for available energy vs energy capacity

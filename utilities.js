@@ -257,6 +257,36 @@ var util = {
         let used = Game.cpu.getUsed() - start;
         console.log('Deserialize took ' + used + ' cpu units');        
         return costMatrix;
+    },
+    
+    targetsOfCreeps: function(nameInMem,f,room){
+        let targets = [];
+        if(nameInMem == undefined){
+            return targets;
+        }
+        let creepsWithTarget = undefined;
+        if(room == undefined){
+            creepsWithTarget = _.filter(Game.creeps, (creep) => {return creep.memory[nameInMem]});
+        }
+        else {
+            creepsWithTarget = room.find(FIND_MY_CREEPS, {filter: (creep) => {return creep.memory[nameInMem]}});
+        }
+        let target = undefined;
+        for(let i=0; i<creepsWithTarget.length; i++){
+            target = f(creepsWithTarget[i].memory[nameInMem]);
+            if(target){
+                targets.push(target);
+            }
+        }
+        return targets;
+    },
+    
+    targetObjectsOfCreeps: function(nameInMem,room){
+        return util.targetsOfCreeps(nameInMem,(trg) => {return Game.getObjectById(trg)},room);
+    },
+    
+    targetRoomsOfCreeps: function(nameInMem,room){
+        return util.targetsOfCreeps(nameInMem,(trg) => {return trg},room);
     }
 };
 

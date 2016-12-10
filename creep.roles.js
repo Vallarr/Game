@@ -310,20 +310,22 @@ var Roles = {
                 activeCreep.harvestSource(source);
             }
             else if(rtn == ERR_NOT_FOUND){
-                let originStorage = util.gatherObjectsInArrayFromIds(Game.rooms[creep.memory.origin].memory.containers).filter((cont) => {return _.sum(cont.store) < cont.storeCapacity});
-                if(activeCreep.fillContainer(originStorage) == ERR_NOT_FOUND){
-                    creep.say('Store full');
-                    activeCreep.moveTo(source,1);
-                    //activeCreep.dropAll();
-                }
+                /*creep.say('Store full');
+                //activeCreep.dropAll();
+                }*/
             }
             else if(rtn == ERR_INVALID_TARGET){
                 activeCreep.buildStructure(sourceContainer);
                 //console.log('Error for creep ' + creep.name + ' ' + rtn);
             }
             else if(rtn == ERR_FULL){
-                //console.log(creep.name + ' countainer full');
-                //activeCreep.dropAll();
+                if(sourceContainer[0].hits < sourceContainer[0].hitsMax){
+                    activeCreep.repairStructure(1,sourceContainer);
+                }
+                //else {
+                    //console.log(creep.name + ' countainer full');
+                    //activeCreep.dropAll();
+                //}
             }
         }
         else {
@@ -707,9 +709,9 @@ var Roles = {
         let targetRoom = creep.memory.targetRoom;
         //console.log(creep.name + ' ' + targetRoom);
         if(targetId && creep.memory.getting){
-            //let getDropped = activeCreep.collectDroppedResource(RESOURCE_ENERGY)
+            let getDropped = activeCreep.collectDroppedResource(RESOURCE_ENERGY)
             //console.log(creep.name + ' drop ' + getDropped);
-            //if(getDropped == ERR_NOT_FOUND){
+            if(getDropped == ERR_NOT_FOUND){
                 //console.log(creep.name + ' harvesting target ' + Game.getObjectById(targetId));
                 if(!Game.rooms[targetRoom]){
                     activeCreep.moveToRoom(targetRoom);
@@ -717,30 +719,30 @@ var Roles = {
                 else {
                     let rtn = activeCreep.harvestContainer(Game.getObjectById(targetId));
                     //console.log(creep.name + ' rtn ' + rtn);
-                    if(rtn == OK){
+                    if(rtn != 1){
                         delete creep.memory.target;
                     }            
                 }
                 return;
-            /*}
+            }
             else if(getDropped == OK){
                 delete creep.memory.target;
             }
             else if(getDropped == 1){
                 return;
-            }*/
+            }
         }
-        if(targetId && !creep.memory.getting){
+        /*if(targetId && !creep.memory.getting){
             //console.log(creep.name + ' transfering to target' + Game.getObjectById(targetId));
             let rtn = activeCreep.transferResources(Game.getObjectById(targetId));
             if(rtn == OK){
                 delete creep.memory.target;
             }
             return;
-        }
+        }*/
         
         if(creep.memory.collecting){
-            //if(activeCreep.collectDroppedResource(RESOURCE_ENERGY) == ERR_NOT_FOUND){
+            if(activeCreep.collectDroppedResource(RESOURCE_ENERGY) == ERR_NOT_FOUND){
                 let filledSourceContainers = [];
                 let darkRooms = [];
                 for(let i=0; i<targetRooms.length; i++){
@@ -801,10 +803,11 @@ var Roles = {
                 }
                 //console.log('Containers: ' + filledSourceContainers);
                 //activeCreep.harvestContainer(filledSourceContainers);
-            //}
+            }
         }
         else {
             creep.memory.getting = false;
+            //console.log(creep.name);
             let room = Game.rooms[orRoom];
             let avContainers = gatherObjectsInArrayFromIds(room.memory.containers,'source','spawn','storage').filter((cont) => {return _.sum(cont.store) < cont.storeCapacity});
             let avLinks = gatherObjectsInArrayFromIds(room.memory.links,'source','spawn').filter((link) => {return link.energy < link.energyCapacity});;
@@ -907,8 +910,10 @@ var Roles = {
 	        }
 	    }
 	},
-	creepExplorerBuild: function(creep,exploreRooms){
-	    var activeCreep = new creepActions(creep);
+	creepExplorerBuild: function(creep,exploreRooms,activeCreep){
+	    if(activeCreep == undefined){
+	        activeCreep = new creepActions(creep);
+	    }
         if(activeCreep.moved){
             //console.log(creep.name + ' really moved from memory');
             return;
@@ -1121,7 +1126,7 @@ var Roles = {
                 return;
             }      
             if(activeCreep.repairStructure(1,dmgStructures) == ERR_NOT_FOUND){
-                Roles.creepExplorerBuild(creep,exploreRooms);
+                Roles.creepExplorerBuild(creep,exploreRooms,activeCreep);
             }
         }
 	},
@@ -1606,51 +1611,52 @@ var Roles = {
 	creepExplorerPatroll: function(creep,exploreRooms){
 	    var activeCreep = new creepActions(creep);
 	    
-        if(activeCreep.moved){
-            //console.log(creep.name + ' really moved from memory');
-            activeCreep.stationaryCombat();
-            return;
-        }
-
         var orRoom = creep.memory.origin;
         //console.log(orRoom);
         if(exploreRooms == undefined || exploreRooms[orRoom] == undefined || !exploreRooms[orRoom].length){
             console.log('No target rooms specified for' + creep.memory.role + ' explorer ' + creep.name + ' of room ' + creep.memory.origin);
             return;
-        }
+        }	    
         var targetRooms = exploreRooms[orRoom].filter((rm) => {
             let horCoDev = Math.abs(Number(rm.substr(1,2))%10-5);
             let vertCoDev = Math.abs(Number(rm.substr(4,2))%10-5);
             //console.log('HorCoDev ' + horCoDev + ' vert ' + vertCoDev);
-            return horCoDev <= 1 && vertCoDev <= 1 && (horCoDev != 0 || vertCoDev != 0);
+            return horCoDev <= 1 && vertCoDev <= 1;
         });
         
-	    if(creep.ticksToLive < 300){
+	    if(creep.ticksToLive < 300 && creep.ticksToLive > 1){
 	        creepsToSpawn[creep.memory.origin][creep.memory.type][creep.memory.role] = targetRooms.length + 1;
-	    }
-	    else if(creep.ticksToLive == 1 || creep.ticksToLive >= 300){
+	    }        
+	    else {
 	        creepsToSpawn[creep.memory.origin][creep.memory.type][creep.memory.role] = targetRooms.length;
 	    }
+	    
+        if(activeCreep.moved){
+            //console.log(creep.name + ' really moved from memory');
+            activeCreep.stationaryCombat();
+            return;
+        }
         
         let patrollRoom = creep.memory.targetRoom;
         if(patrollRoom){
             if(!Game.rooms[patrollRoom]){
                 //console.log(creep.name + ' Going to attacked room');
-                activeCreep.moveToRoom(attackedRoom);
+                activeCreep.moveToRoom(patrollRoom);
                 activeCreep.stationaryCombat();
                 return;
             }
         }
         else {
-            let patrollerCreeps = _.filter(Game.creeps,(cr) => {return cr.role == 'patroller'});
+            let patrollerCreeps = _.filter(Game.creeps,(cr) => {return cr.memory.role == creep.memory.role});
             let patrolledRooms = [];
             for(let i=0; i< patrollerCreeps.length; i++){
-                if(patrollerCreeps.memory.targetRoom){
-                    patrolledRooms.push(patrollerCreeps.memory.targetRoom);
+                if(patrollerCreeps[i].memory.targetRoom){
+                    patrolledRooms.push(patrollerCreeps[i].memory.targetRoom);
                 }
             }
             //console.log('Targets ' + targetRooms);
             //console.log('Patrolled ' + patrolledRooms);
+            //console.log('Patrollers ' + patrollerCreeps);
             patrollRoom = util.findDifferentString(targetRooms,patrolledRooms);
             if(patrollRoom != ERR_NOT_FOUND){
                 //console.log('Found room ' + patrollRoom);
@@ -1678,27 +1684,38 @@ var Roles = {
                 let woundedHarvesters = creep.room.find(FIND_MY_CREEPS, {filter: (creep) => {return creep.memory.role == 'harvester' && creep.hits < creep.hitsMax}});
                 if(activeCreep.healOther(woundedHarvesters) == ERR_NOT_FOUND){
                     let spawns = creep.room.find(FIND_HOSTILE_STRUCTURES, {filter: (str) => {return str.structureType == STRUCTURE_KEEPER_LAIR}});
-                    let nextSpawn = spawns.reduce((a,b) => {
-                        //console.log('Spawn ' + JSON.stringify(a));
-                        if(a.ticksToSpawn){
-                            if(b.ticksToSpawn){
-                                if(a.ticksToSpawn < b.ticksToSpawn){
-                                    return a;
+                    if(spawns.length){
+                        let nextSpawn = spawns.reduce((a,b) => {
+                            //console.log('Spawn ' + JSON.stringify(a));
+                            if(a.ticksToSpawn){
+                                if(b.ticksToSpawn){
+                                    if(a.ticksToSpawn < b.ticksToSpawn){
+                                        return a;
+                                    }
+                                    else {
+                                        return b;
+                                    }
                                 }
                                 else {
-                                    return b;
+                                    return a;
                                 }
                             }
                             else {
-                                return a;
+                                return b;
                             }
+                        });
+                        //console.log('All hostiles dead. Going to ' + nextSpawn);
+                        if(creep.memory.role == 'patrollerRanged'){
+                            activeCreep.moveTo([nextSpawn],3);
                         }
                         else {
-                            return b;
-                        }
-                    });
-                    //console.log('All hostiles dead. Going to ' + nextSpawn);
-                    activeCreep.moveTo([nextSpawn],1);
+                            activeCreep.moveTo([nextSpawn],1);
+                        }                        
+                                                
+                    }
+                    else{
+                        activeCreep.moveTo([{pos: {x: 24,y: 24,'roomName': creep.room.name}}],5);
+                    }
                     activeCreep.stationaryCombat();                    
                 }
             }
