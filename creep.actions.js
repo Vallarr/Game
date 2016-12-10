@@ -705,7 +705,9 @@ Creep.prototype.moveTo = function(targets,rangeTarget) {
                  if(!Game.rooms[roomName]) return;
                  if(this.creep.memory.role == 'melee' || this.creep.memory.role == 'ranged' || this.creep.memory.role == 'hybrid' || this.creep.memory.role == 'patroller' || this.creep.memory.role == 'patrollerRanged'){
                      let costs = Game.rooms[roomName].memory.CombatCostMatrix;
+                     //console.log(this.creep.name);
                      if(costs){
+                         //console.log(this.creep.name + ' targets ' + targets + ' roomName ' + roomName);
                          return PathFinder.CostMatrix.deserialize(costs);
                      }
                  }
@@ -720,7 +722,7 @@ Creep.prototype.moveTo = function(targets,rangeTarget) {
          let path = res.path.splice(0,Math.ceil((res.path.length+1)/2));
          if(!path.length){
              //Not in range but no path happens if on edge between 2 rooms. Try to get closer.
-             //console.log(creep.name + ' ' + rangeTarget);
+             //console.log(creep.name + ' no path ' + rangeTarget);
              if(rangeTarget == 0){
                  return ERR_INVALID_ARGS;
              }

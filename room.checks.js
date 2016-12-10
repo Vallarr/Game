@@ -7,7 +7,7 @@ var containerTypes =    {'W32N25':  {spawn: ['58226bc89d1337e96f0bc74c'], source
                         };
                         
 var linkTypes = {'W32N25': {source: ['5826fea9b8b599ef1fb7a3b1','58352f6311cc83924b9c1f4b'], upgrader: ['582c2c3244fd95cf54c58ff5'], storage:['5826f938df8e27b9696633ed'], spawn: []},
-                 'W33N26': {storage: ['5832ef8dcb8221aa2780ee16'], source: ['583347d842b4a7fc1e31336a'], upgrader: ['583b1c3e60dd444848e8229e']}
+                 'W33N26': {storage: ['5832ef8dcb8221aa2780ee16'], source: ['583347d842b4a7fc1e31336a','584b2b885494afc87d4fbce1'], upgrader: ['583b1c3e60dd444848e8229e']}
                 };                        
                         
 var defStructHits = {'W32N25': {walls: 300000, ramparts: 300000},
