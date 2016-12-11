@@ -403,7 +403,7 @@ var Roles = {
                     filledStorageLink = util.gatherObjectsInArrayFromIds(creep.room.memory.links,'storage').filter((link) => {return link.energy > 0});	                    
                 }	            
 	            let filledSpawnContainers = util.gatherObjectsInArrayFromIds(creep.room.memory.containers,'spawn','source','storage').filter(function(container){return container.store[RESOURCE_ENERGY] > 0});
-	            let filledContainers = filledSpawnContainers.concat(filledSourceLinks,filledStorageLink);
+	            let filledContainers = filledSourceLinks.concat(filledStorageLink,filledSpawnContainers);
                 
 	            //let startFind = Game.cpu.getUsed();
 	            let targetContainer = findFilledContainerForCreep(creep,filledContainers,0,2);
@@ -705,9 +705,44 @@ var Roles = {
             creep.memory.collecting = true;
         }
         
-        let targetId = creep.memory.target;
+        if(creep.memory.getting){
+            if(creep.memory.getDropped) {
+                let resource = Game.getObjectById(creep.memory.getDropped);
+                /*if(resource){
+                    console.log(creep.name + ' getting dropped ' + resource + ' ' + activeCreep.collectDroppedResource(resource.resourceType,resource));
+                }*/
+                if(resource && activeCreep.collectDroppedResource(resource.resourceType,resource) !=1){
+                    delete creep.memory.getDropped;
+                }
+                else if(!resource){
+                    delete creep.memory.getDropped;
+                }
+                
+                return;
+            }
+            else if(creep.memory.targetContainer) {
+                if(!Game.rooms[creep.memory.targetRoom]){
+                    activeCreep.moveToRoom(creep.memory.targetRoom);
+                }
+                else {
+                    let targetContainer = Game.getObjectById(creep.memory.targetContainer);
+                    /*if(targetContainer){
+                        console.log(creep.name + ' getting from  ' + targetContainer + ' ' + activeCreep.harvestContainer(targetContainer));
+                    }*/
+                    if(targetContainer && activeCreep.harvestContainer(targetContainer) != 1){
+                        delete creep.memory.targetContainer;
+                    }
+                    else if(!targetContainer){
+                        delete creep.memory.targetContainer;
+                    }
+                }
+                return;
+            }
+        }
+        
+        /*let targetId = creep.memory.target;
         let targetRoom = creep.memory.targetRoom;
-        //console.log(creep.name + ' ' + targetRoom);
+        //console.log(creep.name + ' ' + targetRoom);        
         if(targetId && creep.memory.getting){
             let getDropped = activeCreep.collectDroppedResource(RESOURCE_ENERGY)
             //console.log(creep.name + ' drop ' + getDropped);
@@ -731,7 +766,7 @@ var Roles = {
             else if(getDropped == 1){
                 return;
             }
-        }
+        }*/
         /*if(targetId && !creep.memory.getting){
             //console.log(creep.name + ' transfering to target' + Game.getObjectById(targetId));
             let rtn = activeCreep.transferResources(Game.getObjectById(targetId));
@@ -742,7 +777,65 @@ var Roles = {
         }*/
         
         if(creep.memory.collecting){
-            if(activeCreep.collectDroppedResource(RESOURCE_ENERGY) == ERR_NOT_FOUND){
+            let droppedResources = util.gatherObjectsInArrayFromIds(creep.room.memory,'dropped').filter((rs) => {
+                let resourceHarvestPower = HARVEST_POWER;
+                if(rs.resourceType != RESOURCE_ENERGY){
+                    resourceHarvestPower = HARVEST_MINERAL_POWER;
+                }
+                return rs.amount > Math.max(5,creep.body.filter((bP) => {return bP.type == WORK}).length) * resourceHarvestPower * Math.ceil(Math.sqrt(Math.pow(creep.pos.x-rs.pos.x,2) + Math.pow(creep.pos.y-rs.pos.y,2)));
+            });
+            let notTargetedResources = undefined;
+            if(droppedResources.length) {
+                let targetedDroppedResources = util.targetObjectsOfCreeps('getDropped',creep.room);
+                notTargetedResources = util.findArrayOfDifferentElements(droppedResources,targetedDroppedResources);
+            }
+            else {
+                notTargetedResources = [];
+            }
+            //console.log(creep.name + ' in room ' + creep.room.name + ' found dropped resources ' + droppedResources + '. not targeted ' + notTargetedResources);
+            let filledSourceContainers = [];
+            let darkRooms = [];
+            for(let i=0; i<targetRooms.length; i++){
+                if(!(Game.rooms[targetRooms[i]] == undefined)){
+                    let filledContainers = util.gatherObjectsInArrayFromIds(Game.rooms[targetRooms[i]].memory.containers,'source').filter((cont) => {return _.sum(cont.store) >= creep.carryCapacity - _.sum(creep.carry)});
+                    filledSourceContainers = filledSourceContainers.concat(filledContainers);
+                }
+                else {
+                    darkRooms.push(targetRooms[i]);
+                }
+            }
+            let targetedContainers = util.targetObjectsOfCreeps('targetContainer');
+            //console.log(creep.name + ' filled ' + filledSourceContainers +' targeted '+ targetedContainers);
+            let notTargetedContainers = util.findArrayOfDifferentElements(filledSourceContainers,targetedContainers);
+            filledSourceContainers = filledSourceContainers.filter((cont) => {return _.sum(cont.store) >= 2*creep.carryCapacity - _.sum(creep.carry)});
+            let dubbleTargetedContainers = util.findDubbles(targetedContainers);
+            //console.log(creep.name + 'dubble filled ' + filledSourceContainers + ' dubble targeted ' + dubbleTargetedContainers);
+            notTargetedContainers = notTargetedContainers.concat(util.findArrayOfDifferentElements(filledSourceContainers,dubbleTargetedContainers));
+            //console.log(creep.name + ' not targeted ' + notTargetedContainers);
+            //console.log(creep.name + ' targets to pick from ' + notTargetedResources.concat(notTargetedContainers));
+            let target = util.findClosestByRange(creep,notTargetedResources.concat(notTargetedContainers))
+            //console.log(creep.name + ' target ' + target);
+            
+            if(target){
+                creep.memory.getting = true;
+                creep.memory.targetRoom = target.pos.roomName;
+                if(target.structureType){
+                    creep.memory.targetContainer = target.id;
+                }
+                else if(target.resourceType){
+                    creep.memory.getDropped = target.id;
+                }
+            }
+            else if(darkRooms.length){
+                activeCreep.moveToRoom(darkRooms[0]);
+                return;
+            }
+            else if(targetRooms.length){
+                activeCreep.moveToRoom(targetRooms[0]);
+                return;
+            }
+            
+            /*if(activeCreep.collectDroppedResource(RESOURCE_ENERGY) == ERR_NOT_FOUND){
                 let filledSourceContainers = [];
                 let darkRooms = [];
                 for(let i=0; i<targetRooms.length; i++){
@@ -803,7 +896,7 @@ var Roles = {
                 }
                 //console.log('Containers: ' + filledSourceContainers);
                 //activeCreep.harvestContainer(filledSourceContainers);
-            }
+            }*/
         }
         else {
             creep.memory.getting = false;
@@ -812,7 +905,7 @@ var Roles = {
             let avContainers = gatherObjectsInArrayFromIds(room.memory.containers,'source','spawn','storage').filter((cont) => {return _.sum(cont.store) < cont.storeCapacity});
             let avLinks = gatherObjectsInArrayFromIds(room.memory.links,'source','spawn').filter((link) => {return link.energy < link.energyCapacity});;
             let targets = avContainers.concat(avLinks);
-            if(activeCreep.transferResources(targets,RESOURCE_ENERGY) == ERR_NOT_FOUND){
+            if(activeCreep.transferResources(targets) == ERR_NOT_FOUND){
                 creep.say('Store full');
             }
         }
@@ -1624,12 +1717,12 @@ var Roles = {
             return horCoDev <= 1 && vertCoDev <= 1;
         });
         
-	    if(creep.ticksToLive < 300 && creep.ticksToLive > 1){
+	    /*if(creep.ticksToLive < 300 && creep.ticksToLive > 1){
 	        creepsToSpawn[creep.memory.origin][creep.memory.type][creep.memory.role] = targetRooms.length + 1;
 	    }        
 	    else {
 	        creepsToSpawn[creep.memory.origin][creep.memory.type][creep.memory.role] = targetRooms.length;
-	    }
+	    }*/
 	    
         if(activeCreep.moved){
             //console.log(creep.name + ' really moved from memory');
@@ -1679,6 +1772,7 @@ var Roles = {
         }
         if(creep.room.name == patrollRoom){
             let hostiles = util.gatherObjectsInArrayFromIds(room.memory.defense.hostiles);
+            let bodyCount = util.countBodyParts(creep)[0];
             //console.log('Hostiles ' + hostiles);
             if(activeCreep.combat(hostiles,creep.hitsMax) == ERR_NOT_FOUND){
                 let woundedHarvesters = creep.room.find(FIND_MY_CREEPS, {filter: (creep) => {return creep.memory.role == 'harvester' && creep.hits < creep.hitsMax}});
@@ -1705,10 +1799,11 @@ var Roles = {
                             }
                         });
                         //console.log('All hostiles dead. Going to ' + nextSpawn);
-                        if(creep.memory.role == 'patrollerRanged'){
+                        if(bodyCount[RANGED_ATTACK] && !bodyCount[ATTACK]){
                             activeCreep.moveTo([nextSpawn],3);
                         }
                         else {
+                            //console.log(creep.name + ' going to ' + nextSpawn);
                             activeCreep.moveTo([nextSpawn],1);
                         }                        
                                                 
@@ -1718,6 +1813,9 @@ var Roles = {
                     }
                     activeCreep.stationaryCombat();                    
                 }
+            }
+            if(bodyCount[RANGED_ATTACK] && !bodyCount[ATTACK]){
+                activeCreep.flee(hostiles,3);
             }
         }
         else {

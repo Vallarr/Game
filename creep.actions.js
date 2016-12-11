@@ -451,17 +451,15 @@ Creep.prototype.rangeAttack = function(hostiles){
     }
 };
 
-Creep.prototype.combat = function(hostiles,minHits){
-    //Attack hostiles, but do not engage if hits are lower than minHits
+Creep.prototype.combat = function(hostiles){
+
     if(hostiles == undefined){
         hostiles = this.creep.room.find(FIND_HOSTILE_CREEPS);
     }
     else if(!Array.isArray(hostiles)){
         hostiles = [hostiles];
     }
-    if(minHits == undefined){
-        minHits = 0;
-    }
+
     let bodyCount = util.countBodyParts(this.creep)[0];
     //console.log('Hostiles ' + hostiles.length + ' ' + JSON.stringify(hostiles));
     if(!hostiles.length){
@@ -703,7 +701,7 @@ Creep.prototype.moveTo = function(targets,rangeTarget) {
              swampCost: 10,
              roomCallback: (roomName) => {
                  if(!Game.rooms[roomName]) return;
-                 if(this.creep.memory.role == 'melee' || this.creep.memory.role == 'ranged' || this.creep.memory.role == 'hybrid' || this.creep.memory.role == 'patroller' || this.creep.memory.role == 'patrollerRanged'){
+                 if(Game.rooms[roomName].memory.defense.underAttack && (this.creep.memory.role == 'melee' || this.creep.memory.role == 'ranged' || this.creep.memory.role == 'hybrid' || this.creep.memory.role == 'patroller' || this.creep.memory.role == 'patrollerRanged')){
                      let costs = Game.rooms[roomName].memory.CombatCostMatrix;
                      //console.log(this.creep.name);
                      if(costs){
@@ -764,7 +762,7 @@ Creep.prototype.moveToRoom = function(roomName){
 Creep.prototype.flee = function(hostiles, fleeRange){
     //Flee from hostiles
     if(hostiles == undefined){
-        hostiles = util.gatherObjectsInArrayFromIds(this.creep.room.memory.defense.hostiles);
+        hostiles = util.gatherObjectsInArrayFromIds(this.creep.room.memory.defense.hostiles,'melee','ranged','meleeHeal','meleeRanged','rangedHeal','hybrid');
     }
     else if(!Array.isArray(hostiles)){
         hostiles = [hostiles];

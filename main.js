@@ -9,7 +9,7 @@ var trade = require('market');
 //Test
 
 var exploreRooms = {'W32N25': ['W32N26','W33N25'], 'W33N26': ['W32N26']};
-var adventureRooms = {'W32N25': ['W35N25','W34N25'], 'W33N26': ['W34N26']};
+var adventureRooms = {'W32N25': ['W34N25','W35N25'], 'W33N26': ['W34N26']};
 var claimRooms = {'W32N25': {'W33N26': true}};
                    
 module.exports.loop = function () {

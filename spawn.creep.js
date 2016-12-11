@@ -1,9 +1,9 @@
-global.creepsToSpawn = {'W32N25':  {settler: {harvester: 2, transporter: 2, repairer: 1, builder: 0, upgrader: 2, melee: 0, miner: 1},
+global.creepsToSpawn = {'W32N25':  {settler: {harvester: 2, transporter: 3, repairer: 1, builder: 0, upgrader: 2, melee: 0, miner: 1},
                                     explorer: {harvester: 3, transporter: 3, repairer: 1, builder: 0, reserver: 2, upgrader: 0, melee: 0},
-                                    adventurer: {harvester: 6, transporter: 10, repairer: 1, builder: 0, melee: 0, ranged: 0, hybrid: 0, patroller: 2, patrollerRanged: 2}},
+                                    adventurer: {harvester: 3, transporter: 6, repairer: 1, builder: 0, melee: 0, ranged: 0, hybrid: 0, patroller: 1, patrollerRanged: 1}},
                         'W33N26':  {settler: {harvester: 2, transporter: 2, repairer: 1, builder: 0, upgrader: 2, melee: 0, miner: 1},
                                     explorer: {harvester: 0, transporter: 0, repairer: 0, builder: 0, reserver: 0, upgrader: 0, melee: 0},
-                                    adventurer: {harvester: 3, transporter: 4, repairer: 1, builder: 0, melee: 0, ranged: 0, hybrid: 0, patroller: 1, patrollerRanged: 1}}
+                                    adventurer: {harvester: 3, transporter: 3, repairer: 1, builder: 0, melee: 0, ranged: 0, hybrid: 0, patroller: 1, patrollerRanged: 1}}
                         };
 var defaultCreepBodies =   {settler:   {harvester: [WORK,WORK,WORK,WORK,WORK,CARRY,MOVE,MOVE,MOVE],
                                         transporter: [CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE],
