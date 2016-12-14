@@ -648,6 +648,7 @@ Creep.prototype.reserveController = function(controllers){
         controllers = [controllers];
     }
     let controller = this.moveTo(controllers,1);
+    //console.log(this.creep.name + ' controller ' + controller);    
     if(!(controller == OK || controller == ERR_NOT_FOUND)){
         return this.creep.reserveController(controller);
     }

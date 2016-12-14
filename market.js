@@ -17,6 +17,7 @@ Market.prototype.trade = function(){
         this.changeOrders(Memory.market.changeOrders);
         this.makeDeals(Memory.market.deals);
         this.fillTerminals(Memory.market.fillTerminal);
+        this.transferResources(Memory.market.transfer);
     }
 };
 
@@ -91,6 +92,31 @@ Market.prototype.fillTerminals = function(fillOrders){
         }
     }
     Memory.market.fillTerminal = fillOrders;
+};
+
+Market.prototype.transferResources = function(transfer){
+    if(transfer == undefined){
+        return;
+    }
+    for(let i=0; i<transfer.length; i++){
+        if(transfer[i].amount >= 100){
+            //let distance = Math.max(Math.abs(Number(transfer[i].to.substr(1,2)) - Number(transfer[i].from.substr(1,2))), Math.abs(Number(transfer[i].to.substr(4,2)) - Number(transfer[i].from.substr(4,2))));
+            let cost = Game.market.calcTransactionCost(transfer[i].amount,transfer[i].to,transfer[i].from);
+            let amount = undefined;
+            if(transfer[i].resourceType == RESOURCE_ENERGY){
+                amount = Math.min(Math.max(0,Game.rooms[transfer[i].from].terminal.store[transfer[i].resourceType] - cost), transfer[i].amount);
+            }
+            else {
+                amount = Math.min(transfer[i].amount, Game.rooms[transfer[i].from].terminal.store[transfer[i].resourceType], Game.rooms[transfer[i].from].terminal.store[RESOURCE_ENERGY]/cost * transfer[i].amount)
+            }
+            if(amount >= 100){
+                console.log('Amount of resource ' + transfer[i].resourceType + ' that can be transfered is ' + amount);
+                //console.log('Transfering ' + amount + ' units of ' + transfer[i].resourceType + ' from room ' + transfer[i].from + ' to room ' + transfer[i].to + ' ' + Game.rooms[transfer[i].from].terminal.send(transfer[i].resourceType,amount,transfer[i].to));
+                transfer[i].amount -= amount;
+                console.log('Left of resource ' + transfer[i].resourceType + ' is ' + transfer[i].amount);                
+            }
+        }
+    }
 };
 
 module.exports = Market;

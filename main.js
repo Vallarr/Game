@@ -8,7 +8,12 @@ var trade = require('market');
 
 //Test
 
-var exploreRooms = {'W32N25': ['W32N26','W33N25'], 'W33N26': ['W32N26']};
+var remoteRooms = {'explorer': {'W32N25': ['W32N26','W33N25'],
+                                'W33N26': ['W33N27','W34N27']},
+                   'adventurer': {'W32N25': ['W34N25','W35N25'],
+                                  'W33N26': ['W34N26']}};
+
+var exploreRooms = {'W32N25': ['W32N26','W33N25'], 'W33N26': ['W33N27','W34N27']};
 var adventureRooms = {'W32N25': ['W34N25','W35N25'], 'W33N26': ['W34N26']};
 var claimRooms = {'W32N25': {'W33N26': true}};
                    
@@ -78,9 +83,8 @@ module.exports.loop = function () {
             }*/
             //let start = Game.cpu.getUsed();            
             let spawn = new autoSpawn(Game.spawns[name],exploreRooms,adventureRooms);
-            spawn.spawnDedicatedCreep();
-            spawn.spawnCreep();
-            spawn.spawnExplorerCreep();
+            spawn.spawnCreepv2('settler',true);
+            spawn.spawnCreepv2('explorer');
             spawn.spawnCreepv2('adventurer');
             //let used = Game.cpu.getUsed()-start;
             //console.log('Checking spawns for '+ name + ' took ' + used + ' cpu units');            
@@ -95,31 +99,27 @@ module.exports.loop = function () {
         try {
             if(!Game.creeps[name].spawning){
                 let creepCPUStart = Game.cpu.getUsed();
-                if(Game.creeps[name].memory.role == 'harvester') {
-                    if(Game.creeps[name].memory.settler){
-                        if(Game.creeps[name].memory.dedicated){
-                            //console.log('Dedicated creep');
-                            Roles.creepDedicatedHarvest(Game.creeps[name]);
-                        }
-                        else {
-                            Roles.creepHarvest(Game.creeps[name]);                
-                        }                    
+                let creep = Game.creeps[name];
+                if(creep.memory.role == 'harvester') {
+                    Roles.creepHarvest(creep,remoteRooms[creep.memory.type])
+                    /*if(Game.creeps[name].memory.type == 'settler'){
+                        Roles.creepHarvest(Game.creeps[name]);
                     }
-                    else if(Game.creeps[name].memory.explorer){
-                        Roles.creepExplorerHarvest(Game.creeps[name],exploreRooms);
+                    else if(Game.creeps[name].memory.type == 'explorer'){
+                        Roles.creepHarvest(Game.creeps[name],exploreRooms);
                     }
                     else if(Game.creeps[name].memory.type == 'adventurer'){
-                        Roles.creepExplorerHarvest(Game.creeps[name],adventureRooms);
-                    }
+                        Roles.creepHarvest(Game.creeps[name],adventureRooms);
+                    }*/
                 }
                 if(Game.creeps[name].memory.role == 'miner'){
                     Roles.creepDedicatedMiner(Game.creeps[name]);
                 }
                 if(Game.creeps[name].memory.role == 'transporter'){
-                    if(Game.creeps[name].memory.settler){
+                    if(Game.creeps[name].memory.settler || Game.creeps[name].memory.type == 'settler'){
                         Roles.creepDedicatedTransporter(Game.creeps[name]);
                     }
-                    else if(Game.creeps[name].memory.explorer){
+                    else if(Game.creeps[name].memory.type == 'explorer'){
                         Roles.creepExplorerTransporter(Game.creeps[name],exploreRooms);
                     }
                     else if(Game.creeps[name].memory.type == 'adventurer'){
@@ -127,58 +127,46 @@ module.exports.loop = function () {
                     }
                 }
                 if(Game.creeps[name].memory.role == 'upgrader') {
-                    if(Game.creeps[name].memory.settler){
-                        if(Game.creeps[name].memory.dedicated){
-                            Roles.creepDedicatedUpgrader(Game.creeps[name]);
-                        }
-                        else {
-                            Roles.creepUpgrade(Game.creeps[name]);
-                        }                        
+                    Roles.creepExplorerUpgrader(creep,remoteRooms[creep.memory.type]);
+                    /*if(Game.creeps[name].memory.settler || Game.creeps[name].memory.type == 'settler'){
+                        Roles.creepDedicatedUpgrader(Game.creeps[name]);
                     }
-                    else if(Game.creeps[name].memory.explorer){
+                    else if(Game.creeps[name].memory.type == 'explorer'){
                         Roles.creepExplorerUpgrader(Game.creeps[name],exploreRooms);
-                    }
+                    }*/
                 }
                 if(Game.creeps[name].memory.role == 'builder') {
-                    if(Game.creeps[name].memory.settler){
-                        if(Game.creeps[name].memory.dedicated){
-                            Roles.creepDedicatedBuild(Game.creeps[name]);
-                        }
-                        else{
-                            Roles.creepBuild(Game.creeps[name]);
-                        }                    
+                    Roles.creepExplorerBuild(creep,remoteRooms[creep.memory.type]);
+                    /*if(Game.creeps[name].memory.settler || Game.creeps[name].memory.type == 'settler'){
+                        Roles.creepDedicatedBuild(Game.creeps[name]);
                     }
-                    else if(Game.creeps[name].memory.explorer){
+                    else if(Game.creeps[name].memory.type == 'explorer'){
                         Roles.creepExplorerBuild(Game.creeps[name],exploreRooms);
                     }
                     else if(Game.creeps[name].memory.type == 'adventurer'){
                         Roles.creepExplorerBuild(Game.creeps[name],adventureRooms);
-                    }
+                    }*/
                 }
                 if(Game.creeps[name].memory.role == 'repairer') {
-                    if(Game.creeps[name].memory.settler){
-                        if(Game.creeps[name].memory.dedicated){
-                            Roles.creepDedicatedRepair(Game.creeps[name]);
-                        }
-                        else{
-                            Roles.creepRepair(Game.creeps[name]);
-                        }                    
+                    Roles.creepExplorerRepair(creep,remoteRooms[creep.memory.type]);
+                    /*if(Game.creeps[name].memory.settler || Game.creeps[name].memory.type == 'settler'){
+                        Roles.creepDedicatedRepair(Game.creeps[name]);
                     }
-                    else if(Game.creeps[name].memory.explorer){
+                    else if(Game.creeps[name].memory.type == 'explorer'){
                         Roles.creepExplorerRepair(Game.creeps[name],exploreRooms);
                     }
                     else if(Game.creeps[name].memory.type == 'adventurer'){
                         Roles.creepExplorerRepair(Game.creeps[name],adventureRooms);
-                    }
+                    }*/
                 }
                 if(Game.creeps[name].memory.role == 'reserver'){
                     Roles.creepExplorerReserver(Game.creeps[name],exploreRooms,claimRooms);
                 }
                 if(Game.creeps[name].memory.role == 'melee') {
-                    if(Game.creeps[name].memory.explorer){
+                    if(Game.creeps[name].memory.type == 'explorer'){
                         Roles.creepExplorerMelee(Game.creeps[name],exploreRooms);
                     }
-                    else if(Game.creeps[name].memory.settler){
+                    else if(Game.creeps[name].memory.settler || Game.creeps[name].memory.type == 'settler'){
                         Roles.creepMelee(Game.creeps[name]);
                     }
                     else if(Game.creeps[name].memory.type == 'adventurer'){

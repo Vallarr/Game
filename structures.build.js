@@ -69,7 +69,7 @@ var plannedStructures = [{room: 'W32N25', buildings:
                                                                 y: [26,30,33,29,31,33,30,32,34]}, RCL: 7},                                                            
                         {structureType: STRUCTURE_STORAGE, pos: {x: [21], y: [29]}, RCL:4}]},
                         {room: 'W35N25', buildings: 
-                        [{structureType: STRUCTURE_CONTAINER, pos: {x: [11,16,38], y: [45,16,12]}, RCL: 0}]}                        
+                        [{structureType: STRUCTURE_CONTAINER, pos: {x: [], y: []}, RCL: 0}]}                        
                         ];
  
  var buildStructures = {
