@@ -110,10 +110,10 @@ Market.prototype.transferResources = function(transfer){
                 amount = Math.min(transfer[i].amount, Game.rooms[transfer[i].from].terminal.store[transfer[i].resourceType], Game.rooms[transfer[i].from].terminal.store[RESOURCE_ENERGY]/cost * transfer[i].amount)
             }
             if(amount >= 100){
-                console.log('Amount of resource ' + transfer[i].resourceType + ' that can be transfered is ' + amount);
-                //console.log('Transfering ' + amount + ' units of ' + transfer[i].resourceType + ' from room ' + transfer[i].from + ' to room ' + transfer[i].to + ' ' + Game.rooms[transfer[i].from].terminal.send(transfer[i].resourceType,amount,transfer[i].to));
+                //console.log('Amount of resource ' + transfer[i].resourceType + ' that can be transfered is ' + amount);
+                console.log('Transfering ' + amount + ' units of ' + transfer[i].resourceType + ' from room ' + transfer[i].from + ' to room ' + transfer[i].to + ' ' + Game.rooms[transfer[i].from].terminal.send(transfer[i].resourceType,amount,transfer[i].to));
                 transfer[i].amount -= amount;
-                console.log('Left of resource ' + transfer[i].resourceType + ' is ' + transfer[i].amount);                
+                //console.log('Left of resource ' + transfer[i].resourceType + ' is ' + transfer[i].amount);                
             }
         }
     }
