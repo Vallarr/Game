@@ -1,12 +1,13 @@
-global.creepsToSpawn = {'W32N25':  {settler: {harvester: 2, transporter: 3, repairer: 1, builder: 0, upgrader: 1, melee: 0, miner: 1},
+global.creepsToSpawn = {'W32N25':  {settler: {harvester: 2, transporter: 2, filler: 2, repairer: 1, builder: 0, upgrader: 1, melee: 0, miner: 1},
                                     explorer: {harvester: 3, transporter: 2, repairer: 1, builder: 0, reserver: 2, upgrader: 0, melee: 0},
                                     adventurer: {harvester: 3, transporter: 6, repairer: 1, builder: 0, melee: 0, ranged: 0, hybrid: 0, patroller: 1, patrollerRanged: 1}},
-                        'W33N26':  {settler: {harvester: 2, transporter: 3, repairer: 1, builder: 0, upgrader: 4, melee: 0, miner: 1},
+                        'W33N26':  {settler: {harvester: 2, transporter: 3, filler: 2, repairer: 1, builder: 0, upgrader: 4, melee: 0, miner: 1},
                                     explorer: {harvester: 2, transporter: 2, repairer: 1, builder: 0, reserver: 2, upgrader: 0, melee: 0},
                                     adventurer: {harvester: 3, transporter: 3, repairer: 1, builder: 0, melee: 0, ranged: 0, hybrid: 0, patroller: 1, patrollerRanged: 1}}
                         };
 var defaultCreepBodies =   {settler:   {harvester: [WORK,MOVE,WORK,WORK,MOVE,WORK,WORK,CARRY,MOVE],
                                         transporter: [CARRY,CARRY,MOVE,CARRY,CARRY,MOVE,CARRY,CARRY,MOVE,CARRY,CARRY,MOVE,CARRY,CARRY,MOVE,CARRY,CARRY,MOVE,CARRY,CARRY,MOVE,CARRY,CARRY,MOVE],
+                                        filler: [CARRY,CARRY,MOVE,CARRY,CARRY,MOVE,CARRY,CARRY,MOVE,CARRY,CARRY,MOVE,CARRY,CARRY,MOVE,CARRY,CARRY,MOVE,CARRY,CARRY,MOVE,CARRY,CARRY,MOVE],
                                         repairer: [WORK,CARRY,MOVE,WORK,CARRY,MOVE,WORK,CARRY,MOVE,WORK,CARRY,MOVE,WORK,CARRY,MOVE,WORK,CARRY,MOVE],
                                         builder: [WORK,CARRY,MOVE,WORK,CARRY,MOVE,WORK,CARRY,MOVE,WORK,CARRY,MOVE,WORK,CARRY,MOVE,WORK,CARRY,MOVE],
                                         upgrader: [WORK,WORK,WORK,MOVE,WORK,WORK,CARRY,MOVE,WORK,WORK,WORK,WORK,WORK,CARRY,MOVE,WORK,WORK,WORK,MOVE,WORK,WORK,CARRY,MOVE,WORK,WORK,WORK,MOVE,WORK,WORK,CARRY,MOVE,WORK,WORK,WORK,WORK,WORK,CARRY,MOVE,WORK,WORK,WORK,MOVE,WORK,WORK,CARRY,MOVE],
@@ -44,7 +45,7 @@ var creepBodies =   {'W32N25': {settler:   {upgrader: [WORK,WORK,WORK,MOVE,WORK,
      this.checkAttack(adventureRooms,'adventurer');
      //console.log('Spawn checked ' + this.spawn.name);
      this.roles = {settler: undefined, defender: undefined, explorer: undefined, adventurer: undefined};
-     this.roles.settler = ['harvester','transporter','repairer','builder','upgrader','melee','miner'];
+     this.roles.settler = ['harvester','transporter','filler','repairer','builder','upgrader','melee','miner'];
      this.roles.defender = ['repairer','builder','melee','ranged']
      this.roles.explorer = ['melee','harvester','transporter','repairer','builder','reserver','upgrader'];
      this.roles.adventurer = ['hybrid','ranged','patroller','patrollerRanged','melee','harvester','transporter','repairer','builder'];

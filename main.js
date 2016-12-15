@@ -1,3 +1,4 @@
+let extendCreep = require('Creep');
 var Roles = require('creep.roles');
 var buildStructures = require('structures.build');
 var autoSpawn = require('spawn.creep');
@@ -18,6 +19,8 @@ var adventureRooms = {'W32N25': ['W34N25','W35N25'], 'W33N26': ['W34N26']};
 var claimRooms = {'W32N25': {'W33N26': true}};
                    
 module.exports.loop = function () {
+    //console.log(Game.creeps.John);
+    //Game.creeps.John.test();
     //console.log('Spawn ' + JSON.stringify(creepsToSpawn['W32N25']['adventurer']));
     //console.log('Loading scripts took ' + Game.cpu.getUsed() + ' cpu units');
     /*var stringified = JSON.stringify(Memory);
@@ -115,8 +118,8 @@ module.exports.loop = function () {
                 if(Game.creeps[name].memory.role == 'miner'){
                     Roles.creepDedicatedMiner(Game.creeps[name]);
                 }
-                if(Game.creeps[name].memory.role == 'transporter'){
-                    if(Game.creeps[name].memory.settler || Game.creeps[name].memory.type == 'settler'){
+                if(Game.creeps[name].memory.role == 'transporter' || Game.creeps[name].memory.role == 'filler'){
+                    if(Game.creeps[name].memory.type == 'settler'){
                         Roles.creepDedicatedTransporter(Game.creeps[name]);
                     }
                     else if(Game.creeps[name].memory.type == 'explorer'){
