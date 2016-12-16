@@ -83,6 +83,7 @@ Creep.prototype.withdrawResource = function(targets,resourceType,amount){
                 }
             }
         }
+        amount = Math.min(amount,targ.store[resourceType]);
         return this.withdraw(targ,resourceType,amount);
     }
     if(targ < 0){
@@ -263,10 +264,13 @@ Creep.prototype.transferResources = function(targets,resourceType){
 };
 
 Creep.prototype.completeOrders = function(){
+    console.log('Orders');
     let roomOrders = this.creep.room.memory.orders;
+    console.log(roomOrders);
     if(roomOrders){
         for(let resource in roomOrders){
             let amount = roomOrders[resource];
+            console.log(amount);
             if(amount == 0){
                 continue;
             }
@@ -274,6 +278,7 @@ Creep.prototype.completeOrders = function(){
                 let storeResource = util.gatherObjectsInArrayFromIds(this.creep.room.memory.containers,'source','mineral','storage').filter((cont) => {return cont.store[resource] > 0});
                 let withdrawAmount = Math.min(this.creep.carryCapacity,amount);
                 let rtn = this.withdrawResource(storeResource,resource,withdrawAmount);
+                console.log('Amount ' + withdrawAmount + ' targets ' + storeResource + ' rtn ' + rtn);
                 if(rtn == OK){
                     //console.log(creep.name + ' type ' + resource + ' amount ' + amount + ' withdrawn ' + withdrawAmount);
                     this.creep.room.memory.orders[resource] = amount - withdrawAmount;
@@ -802,7 +807,7 @@ Creep.prototype.flee = function(hostiles, fleeRange){
 }
 
 
-module.exports = Creep;    
+module.exports = Creep;)}],0);        
     }
     else {
         //console.log(creep.name + ' going to known room');

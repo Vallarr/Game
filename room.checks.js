@@ -1,17 +1,12 @@
 var util = require('utilities');
 
-var containerTypes =    {'W32N25':  {spawn: ['58226bc89d1337e96f0bc74c'], source: ['58234c0f75142eb1527ef29a','582449c6852069e3738952f4'], upgrader: [], storage: ['5824a75dde7e423a24687110'], mineral: ['582c36761eccb64661ae20ca']},
-                         'W32N26':  {source: ['582ee4b61c767e89607e4f7c','582f20c82c85133779640d8b']},
-                         'W33N26': {source: ['582a30d58a7f82d76d8f7990'], spawn: ['582c83db88abb4aa6bc3ca6e','583ad1ec9973e30967389d77'], upgrader: ['582cd706ad35b387769fa311'], storage: ['582f7af656ce442154c463d9'], mineral: ['583c1b5e0ced9eec78e60f1a']},
-                         'W33N25': {source: ['582f10e9441501f55510d932']}
+var containerTypes =    {'W15N8': {}
                         };
                         
-var linkTypes = {'W32N25': {source: ['5826fea9b8b599ef1fb7a3b1','58352f6311cc83924b9c1f4b','584ffcfe725b2dc85a740226'], upgrader: ['582c2c3244fd95cf54c58ff5'], storage:['5826f938df8e27b9696633ed','584fb726363dec505bca5b6a'], spawn: []},
-                 'W33N26': {storage: ['5832ef8dcb8221aa2780ee16'], source: ['583347d842b4a7fc1e31336a','584b2b885494afc87d4fbce1'], upgrader: ['583b1c3e60dd444848e8229e']}
+var linkTypes = {'W15N8': {}
                 };                        
                         
-var defStructHits = {'W32N25': {walls: 300000, ramparts: 300000},
-                     'W33N26': {walls: 300000, ramparts: 300000}
+var defStructHits = {'W15N8': {walls: 30000, ramparts: 30000}
                     };
 
 var RoomChecks = function(room){

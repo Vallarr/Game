@@ -1,4 +1,4 @@
-let extendCreep = require('Creep');
+//let extendCreep = require('Creep');
 var Roles = require('creep.roles');
 var buildStructures = require('structures.build');
 var autoSpawn = require('spawn.creep');
@@ -9,14 +9,12 @@ var trade = require('market');
 
 //Test
 
-var remoteRooms = {'explorer': {'W32N25': ['W32N26','W33N25'],
-                                'W33N26': ['W33N27','W34N27']},
-                   'adventurer': {'W32N25': ['W34N25','W35N25'],
-                                  'W33N26': ['W34N26']}};
+var remoteRooms = {'explorer': {'W15N8': ['W15N9','W16N8']},
+                   'adventurer': {'W15N8': undefined}};
 
-var exploreRooms = {'W32N25': ['W32N26','W33N25'], 'W33N26': ['W33N27','W34N27']};
+var exploreRooms = {'W32N25': ['W32N26','W33N25'], 'W33N26': ['W33N27','W34N27'], 'W15N8': ['W15N9','W16N8']};
 var adventureRooms = {'W32N25': ['W34N25','W35N25'], 'W33N26': ['W34N26']};
-var claimRooms = {'W32N25': {'W33N26': true}};
+var claimRooms = {'W15N8': {'W12N9': false}};
                    
 module.exports.loop = function () {
     //console.log(Game.creeps.John);

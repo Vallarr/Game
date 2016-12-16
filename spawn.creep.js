@@ -1,9 +1,6 @@
-global.creepsToSpawn = {'W32N25':  {settler: {harvester: 2, transporter: 2, filler: 2, repairer: 1, builder: 0, upgrader: 1, melee: 0, miner: 1},
-                                    explorer: {harvester: 3, transporter: 2, repairer: 1, builder: 0, reserver: 2, upgrader: 0, melee: 0},
-                                    adventurer: {harvester: 3, transporter: 6, repairer: 1, builder: 0, melee: 0, ranged: 0, hybrid: 0, patroller: 1, patrollerRanged: 1}},
-                        'W33N26':  {settler: {harvester: 2, transporter: 3, filler: 2, repairer: 1, builder: 0, upgrader: 4, melee: 0, miner: 1},
-                                    explorer: {harvester: 2, transporter: 2, repairer: 1, builder: 0, reserver: 2, upgrader: 0, melee: 0},
-                                    adventurer: {harvester: 3, transporter: 3, repairer: 1, builder: 0, melee: 0, ranged: 0, hybrid: 0, patroller: 1, patrollerRanged: 1}}
+global.creepsToSpawn = {'W15N8':   {settler: {harvester: 4, transporter: 0, filler: 2, repairer: 3, builder: 0, upgrader: 3, melee: 0, miner: 0},
+                                    explorer: {harvester: 0, transporter: 0, repairer: 0, builder: 0, reserver: 0, upgrader: 0, melee: 0},
+                                    adventurer: {harvester: 0, transporter: 0, repairer: 0, builder: 0, melee: 0, ranged: 0, hybrid: 0, patroller: 0, patrollerRanged: 0}}
                         };
 var defaultCreepBodies =   {settler:   {harvester: [WORK,MOVE,WORK,WORK,MOVE,WORK,WORK,CARRY,MOVE],
                                         transporter: [CARRY,CARRY,MOVE,CARRY,CARRY,MOVE,CARRY,CARRY,MOVE,CARRY,CARRY,MOVE,CARRY,CARRY,MOVE,CARRY,CARRY,MOVE,CARRY,CARRY,MOVE,CARRY,CARRY,MOVE],
@@ -29,9 +26,7 @@ var defaultCreepBodies =   {settler:   {harvester: [WORK,MOVE,WORK,WORK,MOVE,WOR
                                         patroller: [MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,HEAL,HEAL,HEAL,HEAL,HEAL],
                                         patrollerRanged: [MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,HEAL,HEAL,HEAL,HEAL,HEAL]}
                             };                  
-var creepBodies =   {'W32N25': {settler:   {upgrader: [WORK,WORK,WORK,MOVE,WORK,WORK,CARRY,MOVE,WORK,WORK,WORK,WORK,WORK,CARRY,MOVE,WORK,WORK,WORK,MOVE,WORK,WORK,CARRY,MOVE]},
-                                explorer:  {}},
-                     'W33N26': {settler:   {},
+var creepBodies =   {'W15N8': {settler:   {},
                                 explorer:  {}}                      
                     };
  
@@ -42,7 +37,9 @@ var creepBodies =   {'W32N25': {settler:   {upgrader: [WORK,WORK,WORK,MOVE,WORK,
      this.explorerRooms = explorerRooms;
      this.adventureRooms = adventureRooms;
      this.checkExplorerAttack();
-     this.checkAttack(adventureRooms,'adventurer');
+     if(adventureRooms){
+         this.checkAttack(adventureRooms,'adventurer');
+     }
      //console.log('Spawn checked ' + this.spawn.name);
      this.roles = {settler: undefined, defender: undefined, explorer: undefined, adventurer: undefined};
      this.roles.settler = ['harvester','transporter','filler','repairer','builder','upgrader','melee','miner'];
@@ -52,10 +49,10 @@ var creepBodies =   {'W32N25': {settler:   {upgrader: [WORK,WORK,WORK,MOVE,WORK,
  };
  
  Spawn.prototype.checkExplorerAttack = function(){
-     if(this.explorerRooms[this.spawn.room.name] != undefined){
+     if(this.explorerRooms && this.explorerRooms[this.spawn.room.name] != undefined){
          creepsToSpawn[this.spawn.room.name]['explorer']['melee'] = 0;
          for(let i=0; i<this.explorerRooms[this.spawn.room.name].length; i++){
-             if(Memory.rooms[this.explorerRooms[this.spawn.room.name][i]].defense.underAttack){
+             if(Memory.rooms[this.explorerRooms[this.spawn.room.name][i]] && Memory.rooms[this.explorerRooms[this.spawn.room.name][i]].defense.underAttack){
                  //console.log('Room '+ this.explorerRooms[this.spawn.room.name][i] + ' under attack, spawning melees');
                  creepsToSpawn[this.spawn.room.name]['explorer']['melee'] += Memory.rooms[this.explorerRooms[this.spawn.room.name][i]].defense.hostiles.number;
              }
@@ -64,13 +61,13 @@ var creepBodies =   {'W32N25': {settler:   {upgrader: [WORK,WORK,WORK,MOVE,WORK,
  };
  
 Spawn.prototype.checkAttack = function(targetRooms,type){
- if(targetRooms[this.spawn.room.name] != undefined){
+ if(targetRooms && targetRooms[this.spawn.room.name] != undefined){
      creepsToSpawn[this.spawn.room.name][type]['melee'] = 0;
      creepsToSpawn[this.spawn.room.name][type]['ranged'] = 0;
      creepsToSpawn[this.spawn.room.name][type]['hybrid'] = 0;
      for(let i=0; i<targetRooms[this.spawn.room.name].length; i++){
          //console.log(JSON.stringify(Memory.rooms[targetRooms[this.spawn.room.name][i]]));
-         if(Memory.rooms[targetRooms[this.spawn.room.name][i]].defense.underAttack && Memory.rooms[targetRooms[this.spawn.room.name][i]].defense.lastAttacker == 'Invader'){
+         if(Memory.rooms[targetRooms[this.spawn.room.name][i]] && Memory.rooms[targetRooms[this.spawn.room.name][i]].defense.underAttack && Memory.rooms[targetRooms[this.spawn.room.name][i]].defense.lastAttacker == 'Invader'){
              //console.log('Room '+ targetRooms[this.spawn.room.name][i] + ' under attack, spawning melees');
              //creepsToSpawn[this.spawn.room.name][type]['melee'] += Math.ceil(Memory.rooms[targetRooms[this.spawn.room.name][i]].defense.hostiles.number/5);
              //creepsToSpawn[this.spawn.room.name][type]['ranged'] += Math.ceil(Memory.rooms[targetRooms[this.spawn.room.name][i]].defense.hostiles.number/5);

@@ -51,8 +51,9 @@ Market.prototype.makeDeals = function(deals){
             else {
                 amount = Math.min(deals[i].amount,order.amount);
             }
-
+            
             let rtn = Game.market.deal(order.id,amount,deals[i].room);
+            //console.log('Dealing ' + amount + ' ' + rtn);
             if(rtn == OK){
                 console.log('Dealing ' + amount + ' of resource ' + order.resourceType + ' in room ' + deals[i].room + ' ' + rtn);
             }
