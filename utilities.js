@@ -304,26 +304,28 @@ var util = {
                 distance = Math.sqrt(Math.pow(reference.pos.x - targets[i].pos.x,2) + Math.pow(reference.pos.y - targets[i].pos.y,2));
             }
             else {
+                let fromRoom = util.coordinatesFromRoomName(reference.pos.roomName);
+                let toRoom = util.coordinatesFromRoomName(targets[i].pos.roomName);
                 let horRoomDev = undefined;
                 let vertRoomDev = undefined;
-                if(reference.pos.roomName.substr(1,1) == targets[i].pos.roomName.substr(1,1)){
-                    horRoomDev = Number(targets[i].pos.roomName.substr(2,2)) - Number(reference.pos.roomName.substr(2,2));
-                    if(reference.pos.roomName.substr(1,1) == 'W') {horRoomDev*=-1}
+                if(fromRoom.horDir == toRoom.horDir){
+                    horRoomDev = toRoom.horCoord - fromRoom.horCoord;
+                    if(fromRoom.horDir == 'W') {horRoomDev*=-1}
                 }
                 else {
-                    horRoomDev = Number(targets[i].pos.roomName.substr(2,2)) + Number(reference.pos.roomName.substr(2,2)) + 1;
-                    if(reference.pos.roomName.substr(1,1) == 'E') {horRoomDev*=-1}
+                    horRoomDev = toRoom.horCoord + fromRoom.horCoord + 1;
+                    if(fromRoom.horDir == 'E') {horRoomDev*=-1}
                 }
-                if(reference.pos.roomName.substr(3,1) == targets[i].pos.roomName.substr(3,1)){
-                    vertRoomDev = Number(targets[i].pos.roomName.substr(4,2)) - Number(reference.pos.roomName.substr(4,2));
-                    if(reference.pos.roomName.substr(3,1) == 'N') {vertRoomDev*=-1}
+                if(fromRoom.vertDir == toRoom.vertDir){
+                    vertRoomDev = toRoom.vertCoord - fromRoom.vertCoord;
+                    if(fromRoom.vertDir == 'N') {vertRoomDev*=-1}
                 }
                 else {
-                    vertRoomDev = Number(targets[i].pos.roomName.substr(4,2)) + Number(reference.pos.roomName.substr(4,2)) + 1;
-                    if(reference.pos.roomName.substr(3,1) == 'S') {vertRoomDev*=-1}
-                }
+                    vertRoomDev = toRoom.vertCoord + fromRoom.vertCoord + 1;
+                    if(fromRoom.vertDir == 'S') {vertRoomDev*=-1}
+                }      
                 //Not linear distance but sum of difference in 2 coordinates. This is used to penalize movement between rooms.
-                distance = Math.abs(reference.pos.x - targets[i].pos.x,2 + horRoomDev * 50) + Math.abs(reference.pos.y - targets[i].pos.y,2 + vertRoomDev * 50);
+                distance = Math.abs(targets[i].pos.x - reference.pos.x + horRoomDev * 50) + Math.abs(targets[i].pos.y - reference.pos.y + vertRoomDev * 50);
             }
             if(!closestRange || distance < closestRange){
                 closestRange = distance;
@@ -331,6 +333,34 @@ var util = {
             }
         }
         return closest;
+    },
+    
+    coordinatesFromRoomName: function(roomName){
+        let room = roomName.split('');
+        let horDir = undefined;
+        let vertDir = undefined;
+        let horCoord = '';
+        let vertCoord = '';
+        for(let i=0; i<room.length; i++){
+            let temp = Number(room[i]);
+            if(Number.isNaN(temp)){
+                if(!horDir){
+                    horDir = room[i];
+                }
+                else {
+                    vertDir = room[i];
+                }
+            }
+            else{
+                if(vertDir){
+                    vertCoord += room[i];
+                }
+                else if(horDir){
+                    horCoord += room[i];
+                }
+            }
+        }
+        return {'horDir':horDir, 'vertDir': vertDir, 'horCoord': Number(horCoord), 'vertCoord': Number(vertCoord)};
     }
 };
 

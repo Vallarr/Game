@@ -1,16 +1,6 @@
-/*
- * Module code goes here. Use 'module.exports' to export things:
- * module.exports.thing = 'a thing';
- *
- * You can import it from another modules like this:
- * var mod = require('creep.actions');
- * mod.thing == 'a thing'; // true
- */
- var util = require('utilities');
-
 Creep.prototype.harvestSource = function(sources){
     if(sources == undefined){
-        sources = util.gatherObjectsInArrayFromIds(this.room.memory.sources,'energy').filter((source) => {return source.energy > 0});
+        sources = util.gatherObjectsInArrayFromIds(this.room.sources,'energy').filter((source) => {return source.energy > 0});
     }
     else if(!Array.isArray(sources)){
         sources = [sources];
@@ -32,7 +22,7 @@ Creep.prototype.harvestSource = function(sources){
 
 Creep.prototype.harvestContainer = function(containers){
     if(containers == undefined){
-        containers = util.gatherObjectsInArrayFromIds(this.room.memory.containers,'source','upgrader','storage').filter((container) => {return container.store[RESOURCE_ENERGY] > 0});
+        containers = util.gatherObjectsInArrayFromIds(this.room.containers,'source','upgrader','storage').filter((container) => {return container.store[RESOURCE_ENERGY] > 0});
     }
     else if(!Array.isArray(containers)){
         containers = [containers];
@@ -45,7 +35,7 @@ Creep.prototype.harvestContainer = function(containers){
 
 Creep.prototype.harvestStorage = function(storage){
     if(storage == undefined){
-        storage = util.gatherObjectsInArrayFromIds(this.room.memory.containers,'storage').filter((stor) => {return stor.store[RESOURCE_ENERGY] > 0});
+        storage = [this.room.storage].filter((stor) => {return stor.store[RESOURCE_ENERGY] > 0});
     }
     else if(!Array.isArray(storage)){
         storage = [storage];
@@ -58,7 +48,7 @@ Creep.prototype.harvestStorage = function(storage){
 
 Creep.prototype.withdrawResource = function(targets,resourceType,amount){
     if(targets == undefined){
-        return ERR_INVALID_ARGS;
+        return ERR_NOT_FOUND;
     }
     else if(!Array.isArray(targets)){
         targets = [targets];
@@ -68,22 +58,29 @@ Creep.prototype.withdrawResource = function(targets,resourceType,amount){
     }
     let targ = this.moveTo(targets,1);
     //console.log('Withdrawing from ' + targ);
-    if(!(targ == OK || targ == ERR_NOT_FOUND)){
+    if(targ != OK && targ != ERR_NOT_FOUND){
         if(resourceType == undefined){
             if(targ.structureType == STRUCTURE_SPAWN || targ.structureType == STRUCTURE_EXTENSION || targ.structureType == STRUCTURE_LINK){
                 resourceType = RESOURCE_ENERGY;
             }
             else {
                 for(let resource in targ.store){
-                    if(targ.store[resource] > 0){
+                    if(targ.store[resource]){
                         resourceType = resource;
-                        //console.log(creep.name + ' resourceType ' + resourceType);
                         break;
                     }
                 }
             }
         }
-        amount = Math.min(amount,targ.store[resourceType]);
+        if(amount == undefined){
+            amount = this.carryCapacity - _.sum(this.carry);
+        }
+        if(targ.structureType == STRUCTURE_CONTAINER || targ.structureType == STRUCTURE_STORAGE){
+            amount = Math.min(amount,targ.store[resourceType]);
+        }
+        else {
+            amount = Math.min(amount,targ[resourceType]);
+        }
         return this.withdraw(targ,resourceType,amount);
     }
     if(targ < 0){
@@ -106,23 +103,23 @@ Creep.prototype.collectDroppedResource = function(resourceType, resource){
         }
         else {
             if(resourceType == undefined){
-                resource = util.gatherObjectsInArrayFromIds(this.room.memory,'dropped');
+                resource = util.gatherObjectsInArrayFromIds(this.room,'dropped');
             }
             else {
-                resource = util.gatherObjectsInArrayFromIds(this.room.memory,'dropped').filter((resource) => {return resource.resourceType == resourceType});
+                resource = util.gatherObjectsInArrayFromIds(this.room,'dropped').filter((resource) => {return resource.resourceType == resourceType});
             }
             resource = resource.filter((rs) => {
                 let resourceHarvestPower = HARVEST_POWER;
                 if(rs.resourceType != RESOURCE_ENERGY){
                     resourceHarvestPower = HARVEST_MINERAL_POWER;
                 }
-                return rs.amount > Math.max(5,this.creep.body.filter(function(bP){ return bP.type == WORK}).length) * resourceHarvestPower * Math.ceil(Math.sqrt(Math.pow(this.pos.x-rs.pos.x,2) + Math.pow(this.pos.y-rs.pos.y,2)));
+                return rs.amount > Math.max(5,this.body.filter(function(bP){ return bP.type == WORK}).length) * resourceHarvestPower * Math.ceil(Math.sqrt(Math.pow(this.pos.x-rs.pos.x,2) + Math.pow(this.pos.y-rs.pos.y,2)));
             });
             if(!resource.length){return ERR_NOT_FOUND}
             
             let targetedResources = util.targetObjectsOfCreeps('getDropped',this.room);
             let notTargetedResources = util.findArrayOfDifferentElements(resource,targetedResources);
-            res = this.pos.findClosestByRange(notTargetedResources);
+            res = this.pos.closestByRange(notTargetedResources);
             if(res){
                 this.memory.getDropped = res.id;
             } 
@@ -157,17 +154,14 @@ Creep.prototype.collectDroppedResource = function(resourceType, resource){
 
 Creep.prototype.fillSpawn = function(targets){
     if(targets == undefined){
-        targets = util.gatherObjectsInArrayFromIds(this.room.memory.energy.structures).filter((target) => {return target.energy < target.energyCapacity});
-    }
-    else if(!Array.isArray(targets)){
-        targets = [targets];
+        targets = this.pos.closestByRange(util.gatherObjectsInArrayFromIds(this.room.energy.toFill),1);
     }
     return this.transferResources(targets,RESOURCE_ENERGY);
 };
 
 Creep.prototype.fillContainer = function(targets){
     if(targets == undefined){
-        targets = util.gatherObjectsInArrayFromIds(this.room.memory.containers).filter((cont) => {return _.sum(cont.store) < cont.storeCapacity});
+        targets = util.gatherObjectsInArrayFromIds(this.room.containers).filter((cont) => {return _.sum(cont.store) < cont.storeCapacity});
     }
     else if(!Array.isArray(targets)){
         targets = [targets];
@@ -177,7 +171,13 @@ Creep.prototype.fillContainer = function(targets){
 
 Creep.prototype.fillTower = function(towers){
     if(towers == undefined){
-        towers = util.gatherObjectsInArrayFromIds(this.room.memory.tower).filter((tow) => {return tow.energy < tow.energyCapacity});
+        if(this.room.defense.tower){
+            towers = util.gatherObjectsInArrayFromIds(this.room.defense,'tower').filter((tow) => {return tow.energy < tow.energyCapacity});
+        }
+        else {
+            towers = this.room.find(FIND_STRUCTURES, {filter: (tow) => {return tow.structureType == STRUCTURE_TOWER && tow.energy < tow.energyCapacity}});
+        }
+        
     }
     else if(!Array.isArray(towers)){
         towers = [towers];
@@ -187,7 +187,7 @@ Creep.prototype.fillTower = function(towers){
 
 Creep.prototype.fillStorage = function(targets){
     if(targets == undefined){
-        targets = util.gatherObjectsInArrayFromIds(this.room.memory.containers,'storage').filter((stor) => _.sum(stor.store) < stor.storeCapacity);
+        targets = [this.room.storage].filter((stor) => _.sum(stor.store) < stor.storeCapacity);
     }
     else if(!Array.isArray(targets)){
         targets = [targets]
@@ -198,62 +198,26 @@ Creep.prototype.fillStorage = function(targets){
 Creep.prototype.transferResources = function(targets,resourceType){
     if(resourceType == undefined){
         //See what kind of resource creep is carrying
-        resourceType = [];
         for(let resource in this.carry){
-            //console.log('Creep: ' + creep.name + ' carries ' + resource);
             if(this.carry[resource]){
-                if(this.carry[resource] == _.sum(this.carry)){
-                    //Creep is only carrying 1 type of resource
-                    //console.log('Only 1 resource');
-                    resourceType = resource;
-                }
-                else {
-                    //Creep is carrying multiple resource -> transfer them all
-                    //console.log('Multiple types of resources');
-                    resourceType.push(resource);
-                }
+                resourceType = resource;
+                break;
             }
         }
     }
-    
     if(targets == undefined){
-        if(resourceType == RESOURCE_ENERGY){
-            //Structures that can hold energy
-            targets = this.room.find(FIND_STRUCTURES, {
-                filter: (structure) => {
-                    return ((structure.structureType == STRUCTURE_SPAWN || structure.structureType == STRUCTURE_EXTENSION) && structure.energy < structure.energyCapacity) ||
-                            ((structure.structureType == STRUCTURE_CONTAINER || structure.structureType == STRUCTURE_STORAGE) && _.sum(structure.store) < structure.storeCapacity);
-                }
-            });            
-        }
-        else {
-            //Structures that can hold any resource
-            targets = this.room.find(FIND_STRUCTURES, {
-                filter: (structure) => {
-                    return ((structure.structureType == STRUCTURE_CONTAINER || structure.structureType == STRUCTURE_STORAGE) && _.sum(structure.store) < structure.storeCapacity);
-                }
-            });             
-        }
+        return ERR_NOT_FOUND;
     }
     else if(!Array.isArray(targets)){
-        targets = [targets];
+        targets = [targets];            
     }
     if(!targets.length){
         return ERR_NOT_FOUND;
     }
+    
     let target = this.moveTo(targets,1);
-    if(!(target == OK || target == ERR_NOT_FOUND)){
-        if(!Array.isArray(resourceType)){
-            return this.transfer(target,resourceType);
-        }
-        else {
-            //Transfer all resources
-            let rtvl = OK;
-            for(let i=0; i<resourceType.length; i++){
-                rtvl = Math.min(rtvl,this.transfer(target,resourceType[i]));
-            }
-            return rtvl;
-        }
+    if(target != OK && target != ERR_NOT_FOUND){
+        return this.transfer(target,resourceType);
     }
     if(target < 0){
         return target;
@@ -264,26 +228,23 @@ Creep.prototype.transferResources = function(targets,resourceType){
 };
 
 Creep.prototype.completeOrders = function(){
-    console.log('Orders');
-    let roomOrders = this.creep.room.memory.orders;
-    console.log(roomOrders);
+    let roomOrders = this.room.memory.orders;
     if(roomOrders){
         for(let resource in roomOrders){
             let amount = roomOrders[resource];
-            console.log(amount);
             if(amount == 0){
                 continue;
             }
             else if(amount > 0){
-                let storeResource = util.gatherObjectsInArrayFromIds(this.creep.room.memory.containers,'source','mineral','storage').filter((cont) => {return cont.store[resource] > 0});
-                let withdrawAmount = Math.min(this.creep.carryCapacity,amount);
+                let storeResource = util.gatherObjectsInArrayFromIds(this.room.containers,'source','mineral','storage').filter((cont) => {return cont.store[resource] > 0});
+                let withdrawAmount = Math.min(this.carryCapacity,amount);
                 let rtn = this.withdrawResource(storeResource,resource,withdrawAmount);
-                console.log('Amount ' + withdrawAmount + ' targets ' + storeResource + ' rtn ' + rtn);
+                //console.log('Amount ' + withdrawAmount + ' targets ' + storeResource + ' rtn ' + rtn);
                 if(rtn == OK){
                     //console.log(creep.name + ' type ' + resource + ' amount ' + amount + ' withdrawn ' + withdrawAmount);
-                    this.creep.room.memory.orders[resource] = amount - withdrawAmount;
-                    this.creep.memory.getting = false;
-                    this.creep.memory.targetContainer = this.creep.room.terminal.id;
+                    this.room.memory.orders[resource] = amount - withdrawAmount;
+                    this.memory.getting = false;
+                    this.memory.targetContainer = this.room.terminal.id;
                     return;
                 }
                 else if(rtn != ERR_NOT_FOUND){
@@ -292,21 +253,21 @@ Creep.prototype.completeOrders = function(){
             }
             else {
                 amount = Math.abs(amount);
-                let terminal = [this.creep.room.terminal].filter((term) => {return term.store[resource] > 0});
-                let withdrawAmount = Math.min(this.creep.carryCapacity,amount);
+                let terminal = [this.room.terminal].filter((term) => {return term.store[resource] > 0});
+                let withdrawAmount = Math.min(this.carryCapacity,amount);
                 let rtn = this.withdrawResource(terminal,resource,withdrawAmount);
                 if(rtn == OK){
                     //console.log(creep.name + ' type ' + resource + ' amount ' + amount + ' withdrawn ' + withdrawAmount);
-                    this.creep.room.memory.orders[resource] += withdrawAmount;
+                    this.room.memory.orders[resource] += withdrawAmount;
                     return;
                 }
                 else if(rtn != ERR_NOT_FOUND){
                     return;
                 }
             }
-
         }
-    }    
+    }
+    return ERR_NOT_FOUND;
 };
 
 Creep.prototype.repairWall = function(hitFrac, targets){
@@ -314,7 +275,7 @@ Creep.prototype.repairWall = function(hitFrac, targets){
         hitFrac = 1.0/10000; 
     }
     if(targets == undefined){
-        targets = this.creep.room.find(FIND_STRUCTURES, {
+        targets = this.room.find(FIND_STRUCTURES, {
             filter: (structure) => {
                 return structure.structureType == STRUCTURE_WALL && structure.hits < hitFrac * structure.hitsMax;
             }
@@ -329,11 +290,11 @@ Creep.prototype.repairWall = function(hitFrac, targets){
 
 Creep.prototype.repairStructure = function(hitFrac,targets){
     if(hitFrac == undefined){
-        hitFrac = 1.0/Math.pow(10.0,(1.0/2.0*this.creep.room.controller.level));
+        hitFrac = 1.0/Math.pow(10.0,(1.0/2.0*this.room.controller.level));
         //console.log(hitFrac);
     }
     if(targets == undefined){
-        targets = util.getArrayObjectsById(this.creep.room.memory.dmgStructures);
+        targets = util.getArrayObjectsById(this.room.memory.dmgStructures);
         //console.log(targets);
     }
     else if(!Array.isArray(targets)){
@@ -344,7 +305,7 @@ Creep.prototype.repairStructure = function(hitFrac,targets){
     }
     let target = this.moveTo(targets,3);
     if(!(target == OK || target == ERR_NOT_FOUND)){
-        return this.creep.repair(target);
+        return this.repair(target);
     }
     if(target < 0){
         return target;
@@ -356,7 +317,7 @@ Creep.prototype.repairStructure = function(hitFrac,targets){
 
 Creep.prototype.buildStructure = function(targets){
     if(targets == undefined){
-        targets = this.creep.room.find(FIND_CONSTRUCTION_SITES);
+        targets = this.room.find(FIND_CONSTRUCTION_SITES);
     }
     else if(!Array.isArray(targets)){
         targets = [targets];
@@ -366,7 +327,7 @@ Creep.prototype.buildStructure = function(targets){
     }
     let target = this.moveTo(targets,3);
     if(!(target == OK || target == ERR_NOT_FOUND)){
-        return this.creep.build(target);
+        return this.build(target);
     }
     if(target < 0){
         return target;
@@ -377,13 +338,13 @@ Creep.prototype.buildStructure = function(targets){
 };
 
 Creep.prototype.upgrade = function(){
-    var targets = [this.creep.room.controller];
+    var targets = [this.room.controller];
     if(!targets.length){
         return ERR_NOT_FOUND;
     }
     let target = this.moveTo(targets,3);
     if(!(target == OK || target == ERR_NOT_FOUND)){
-        return this.creep.upgradeController(target);
+        return this.upgradeController(target);
     }
     if(target < 0){
         return target;
@@ -395,7 +356,7 @@ Creep.prototype.upgrade = function(){
 
 Creep.prototype.meleeAttack = function(hostiles){
     if(hostiles == undefined){
-        hostiles = this.creep.room.find(FIND_HOSTILE_CREEPS);
+        hostiles = this.room.find(FIND_HOSTILE_CREEPS);
     }
     else if(!Array.isArray(hostiles)){
         hostiles = [hostiles];
@@ -405,7 +366,7 @@ Creep.prototype.meleeAttack = function(hostiles){
     }
     let hostile = this.moveTo(hostiles,1);
     if(!(hostile == OK || hostile == ERR_NOT_FOUND)){
-        return this.creep.attack(hostile);
+        return this.attack(hostile);
     }
     if(hostile < 0){
         return hostile;
@@ -417,7 +378,7 @@ Creep.prototype.meleeAttack = function(hostiles){
 
 Creep.prototype.rangeAttack = function(hostiles){
     if(hostiles == undefined){
-        hostiles = this.creep.room.find(FIND_HOSTILE_CREEPS);
+        hostiles = this.room.find(FIND_HOSTILE_CREEPS);
     }
     else if(!Array.isArray(hostiles)){
         hostiles = [hostiles];
@@ -427,7 +388,7 @@ Creep.prototype.rangeAttack = function(hostiles){
     }
     let hostile = this.moveTo(hostiles,3);
     if(!(hostile == OK || hostile == ERR_NOT_FOUND)){
-        return this.creep.rangedAttack(hostile);
+        return this.rangedAttack(hostile);
     }
     if(hostile < 0){
         return hostile;
@@ -440,18 +401,18 @@ Creep.prototype.rangeAttack = function(hostiles){
 Creep.prototype.combat = function(hostiles){
 
     if(hostiles == undefined){
-        hostiles = this.creep.room.find(FIND_HOSTILE_CREEPS);
+        hostiles = this.room.find(FIND_HOSTILE_CREEPS);
     }
     else if(!Array.isArray(hostiles)){
         hostiles = [hostiles];
     }
 
-    let bodyCount = util.countBodyParts(this.creep)[0];
+    let bodyCount = util.countBodyParts(this)[0];
     //console.log('Hostiles ' + hostiles.length + ' ' + JSON.stringify(hostiles));
     if(!hostiles.length){
-        if(bodyCount[HEAL] && this.creep.hits<this.creep.hitsMax){
+        if(bodyCount[HEAL] && this.hits<this.hitsMax){
             //console.log(this.creep.name + ' heal');
-            this.creep.heal(this.creep);
+            this.heal(this);
         }        
         return ERR_NOT_FOUND;
     }
@@ -463,7 +424,7 @@ Creep.prototype.combat = function(hostiles){
     if(bodyCount[RANGED_ATTACK]){
         hostile = this.moveTo(hostiles,3);
         if(hostile != OK && hostile != ERR_NOT_FOUND){
-            this.creep.rangedAttack(hostile);
+            this.rangedAttack(hostile);
             rtn = OK;
         }
         else {
@@ -476,20 +437,20 @@ Creep.prototype.combat = function(hostiles){
         hostile = this.moveTo(hostiles,1);
         if(hostile != OK && hostile != ERR_NOT_FOUND){
             //console.log(this.creep.name + ' attack');
-            this.creep.attack(hostile);
+            this.attack(hostile);
             rtn = OK;
         }
         else {
             rtn = Math.max(rtn,hostile);
-            if(bodyCount[HEAL] && this.creep.hits<this.creep.hitsMax){
+            if(bodyCount[HEAL] && this.hits<this.hitsMax){
                 //console.log(this.creep.name + ' heal');
-                this.creep.heal(this.creep);
+                this.heal(this);
             }
         }        
     }
-    else if(bodyCount[HEAL] && this.creep.hits<this.creep.hitsMax){
+    else if(bodyCount[HEAL] && this.hits<this.hitsMax){
         //console.log(this.creep.name + ' heal');
-        this.creep.heal(this.creep);
+        this.heal(this);
     }
     
     if(rtn < 0){
@@ -503,16 +464,16 @@ Creep.prototype.combat = function(hostiles){
 Creep.prototype.stationaryCombat = function(hostiles){
     //console.log('Stationary');
     if(hostiles == undefined){
-        hostiles = this.creep.room.find(FIND_HOSTILE_CREEPS);
+        hostiles = this.room.find(FIND_HOSTILE_CREEPS);
     }
     else if(!Array.isArray(hostiles)){
         hostiles = [hostiles];
     }
-    let bodyCount = util.countBodyParts(this.creep)[0];
+    let bodyCount = util.countBodyParts(this)[0];
     if(!hostiles.length){
-        if(bodyCount[HEAL] && this.creep.hits<this.creep.hitsMax){
-            //console.log(this.creep.name + ' heal');
-            this.creep.heal(this.creep);
+        if(bodyCount[HEAL] && this.hits<this.hitsMax){
+            //console.log(this.name + ' heal');
+            this.creep(this);
         }        
         return ERR_NOT_FOUND;
     }
@@ -520,9 +481,9 @@ Creep.prototype.stationaryCombat = function(hostiles){
     let hostile = undefined;
     let rtn = undefined;    
     if(bodyCount[RANGED_ATTACK]){
-        hostile = util.targetsInRange(hostiles,[this.creep],3);
+        hostile = util.targetsInRange(hostiles,[this],3);
         if(hostile != OK && hostile != ERR_NOT_FOUND){
-            this.creep.rangedAttack(hostile);
+            this.rangedAttack(hostile);
             rtn = OK;
         }
         else {
@@ -531,23 +492,23 @@ Creep.prototype.stationaryCombat = function(hostiles){
     }    
     
     if(bodyCount[ATTACK]){
-        hostile = util.targetsInRange(hostiles,[this.creep],1);
+        hostile = util.targetsInRange(hostiles,[this],1);
         if(hostile != OK && hostile != ERR_NOT_FOUND){
-            //console.log(this.creep.name + 'attack');
-            this.creep.attack(hostile);
+            //console.log(this.name + 'attack');
+            this.attack(hostile);
             rtn = OK;
         }
         else {
             rtn = Math.max(rtn,hostile);
-            if(bodyCount[HEAL] && this.creep.hits<this.creep.hitsMax){
+            if(bodyCount[HEAL] && this.hits<this.hitsMax){
                 //console.log(this.creep.name + 'heal');
-                this.creep.heal(this.creep);
+                this.heal(this);
             }
         }        
     }
-    else if(bodyCount[HEAL] && this.creep.hits<this.creep.hitsMax){
-        //console.log(this.creep.name + 'heal');
-        this.creep.heal(this.creep);
+    else if(bodyCount[HEAL] && this.hits<this.hitsMax){
+        //console.log(this.name + 'heal');
+        this.creep.heal(this);
     }
     
     if(rtn < 0){
@@ -560,7 +521,7 @@ Creep.prototype.stationaryCombat = function(hostiles){
 
 Creep.prototype.healOther = function(targets){
     if(targets == undefined){
-        targets = this.creep.room.find(FIND_MY_CREEPS, {filter: (cr) => {return cr.hits < cr.hitsMax}});
+        targets = this.room.find(FIND_MY_CREEPS, {filter: (cr) => {return cr.hits < cr.hitsMax}});
     }
     else if(!Array.isArray(targets)){
         targets = [targets];
@@ -568,18 +529,18 @@ Creep.prototype.healOther = function(targets){
     if(!targets.length){
         return ERR_NOT_FOUND;
     }
-    let bodyCount = util.countBodyParts(this.creep)[0];
+    let bodyCount = util.countBodyParts(this)[0];
     if(!bodyCount[HEAL]){
         return ERR_NOT_FOUND;
     }
     let target = this.moveTo(targets,3);
     let rtn = undefined;
     if(target != OK && target != ERR_NOT_FOUND){
-        rtn = this.creep.rangedHeal(target);
+        rtn = this.rangedHeal(target);
     }
     target = this.moveTo(targets,1);
     if(target != OK && target != ERR_NOT_FOUND){
-        rtn = this.creep.heal(target);
+        rtn = this.heal(target);
     }
     if(rtn < 0){
         return rtn;
@@ -592,12 +553,12 @@ Creep.prototype.healOther = function(targets){
 Creep.prototype.occupyRampart = function(ramparts){
     if(ramparts == undefined){
         //Check if creep is already in rampart
-        let structAtCreep = this.creep.room.lookForAt(LOOK_STRUCTURES,this.creep.pos);
+        let structAtCreep = this.room.lookForAt(LOOK_STRUCTURES,this.pos);
         let creepInRampart = _.filter(structAtCreep, function(structure){
             return structure.structureType == STRUCTURE_RAMPART
         }).length;
         if(!creepInRampart){
-            ramparts = this.creep.room.find(FIND_MY_STRUCTURES, {
+            ramparts = this.room.find(FIND_MY_STRUCTURES, {
                 filter: (structure) => {
                     return structure.structureType == STRUCTURE_RAMPART &&
                         !structure.room.lookForAt(LOOK_CREEPS,structure.pos).length
@@ -626,7 +587,7 @@ Creep.prototype.occupyRampart = function(ramparts){
     }
 }
 
-Creep.prototype.reserveController = function(controllers){
+Creep.prototype.reserve = function(controllers){
     if(controllers == undefined || !controllers.length){
         return ERR_NOT_FOUND;
     }
@@ -635,8 +596,8 @@ Creep.prototype.reserveController = function(controllers){
     }
     let controller = this.moveTo(controllers,1);
     //console.log(this.creep.name + ' controller ' + controller);    
-    if(!(controller == OK || controller == ERR_NOT_FOUND)){
-        return this.creep.reserveController(controller);
+    if(controller != OK && controller != ERR_NOT_FOUND){
+        return this.reserveController(controller);
     }
     if(controller < 0){
         return controller;
@@ -646,7 +607,7 @@ Creep.prototype.reserveController = function(controllers){
     }
 };
 
-Creep.prototype.claimController = function(controllers){
+Creep.prototype.claim = function(controllers){
     if(controllers == undefined || !controllers.length){
         return ERR_NOT_FOUND;
     }
@@ -655,10 +616,181 @@ Creep.prototype.claimController = function(controllers){
     }
     let controller = this.moveTo(controllers,1);
     if(!(controller == OK || controller == ERR_NOT_FOUND)){
-        return this.creep.claimController(controller)
+        return this.claimController(controller);
     }
     if(controller < 0){
         return controller;
+    }
+    else {
+        return 1;
+    }
+};
+
+Creep.prototype.dismantleStructure = function(struct){
+    if(struct == undefined){
+        return ERR_NOT_FOUND;
+    }
+    else if(!Array.isArray(struct)){
+        struct = [struct];
+    }
+    
+    let st = this.moveTo(struct,1);
+    if(st != OK && st != ERR_NOT_FOUND){
+        return this.dismantle(st);
+    }
+    if(st <0){
+        return st;
+    }
+    else {
+        return 1;
+    }
+};
+
+Creep.prototype.moveTo = function(targets,rangeTarget) {
+     //Check whether creep is already in range
+     for(let i=0; i<targets.length; i++){
+         if(this.pos.inRangeTo(targets[i].pos,rangeTarget)){
+            return targets[i];
+         }
+     }
+     
+     //If no targets are within range, search for path to nearest target
+     if(!this.fatigue){
+         let goals = [];
+         for(let i=0; i<targets.length;i++){
+             goals.push({pos: targets[i].pos, range: rangeTarget})
+         }
+         
+         
+         //from Documentation
+         let res = PathFinder.search(this.pos, goals,
+         {
+             plainCost: 2,
+             swampCost: 10,
+             roomCallback: (roomName) => {
+                 if(!Game.rooms[roomName]) return;
+                 if(Game.rooms[roomName].memory.defense.underAttack && (this.memory.role == 'melee' || this.memory.role == 'ranged' || this.memory.role == 'hybrid' || this.memory.role == 'patroller' || this.memory.role == 'patrollerRanged')){
+                     let costs = Game.rooms[roomName].CombatCostMatrix;
+                     //console.log(this.name);
+                     if(costs){
+                         //console.log(this.name + ' targets ' + targets + ' roomName ' + roomName);
+                         return costs;
+                     }
+                 }
+                 return Game.rooms[roomName].CostMatrix;
+             },
+         });
+
+         if(res.incomplete && res.path.length<50){
+             //console.log(this.name + ' ' + JSON.stringify(res.path.length));
+             return ERR_NOT_FOUND;
+         }
+         let path = res.path.splice(0,Math.ceil((res.path.length+1)/2));
+         if(!path.length){
+             //Not in range but no path happens if on edge between 2 rooms. Try to get closer.
+             //console.log(this.name + ' no path ' + rangeTarget);
+             if(rangeTarget == 0){
+                 return ERR_INVALID_ARGS;
+             }
+             this.moveTo(targets,rangeTarget-1);
+         }
+
+         this.move(this.pos.getDirectionTo(path.shift()));
+         this.memory.path = path;
+     }
+     return OK;
+};
+
+Creep.prototype.moveToRoom = function(roomName){
+    if(this.room.name == roomName){
+        return OK;
+    }
+    //room.findExitTo has a high cost -> only use if target room is not available in Game.rooms
+    if(Game.rooms[roomName] == undefined){
+        return this.moveTo([{pos: this.pos.findClosestByRange(this.room.findExitTo(roomName))}],0);        
+    }
+    else {
+        return this.moveTo([{pos: {x: 24,y: 24,'roomName': roomName}}], 23);
+    }
+};
+
+Creep.prototype.flee = function(hostiles, fleeRange){
+    //Flee from hostiles
+    if(hostiles == undefined){
+        hostiles = util.gatherObjectsInArrayFromIds(this.room.defense.hostiles,'melee','ranged','meleeHeal','meleeRanged','rangedHeal','hybrid');
+    }
+    else if(!Array.isArray(hostiles)){
+        hostiles = [hostiles];
+    }
+    if(!hostiles.length){
+        return ERR_NOT_FOUND;
+    }
+    if(fleeRange == undefined){
+        fleeRange = 4;
+    }
+    //console.log(this.creep.name + ' Hostiles to flee from ' + hostiles);
+    
+    let inRange = false;
+    for(let i=0; i<hostiles.length && !inRange; i++){
+        inRange = this.pos.inRangeTo(hostiles[i].pos,fleeRange);
+    }
+    
+    //console.log('In range ' + inRange);
+    
+    if(inRange && !this.fatigue){
+        let goals = [];
+        for(let i=0; i<hostiles.length; i++){
+            goals.push({pos: hostiles[i].pos, range: fleeRange});
+        }
+        
+        let res = PathFinder.search(this.pos, goals, 
+        {
+            plainCost: 2,
+            swampCost: 10,
+            flee: true,
+            roomCallback: (roomName) => {
+                if(!Game.rooms[roomName]) return;
+                let costs = Game.rooms[roomName].CombatCostMatrix;
+                if(costs){
+                    return costs
+                }
+                return Game.rooms[roomName].CostMatrix;
+            },
+        });
+        
+        let path = res.path.splice(0,Math.ceil((res.path.length+1)/2));
+        
+        if(!path.length){
+            return ERR_NOT_FOUND;
+        }
+        
+        this.move(this.pos.getDirectionTo(path.shift()));
+        this.memory.path = path;
+    }
+    else if(!inRange){
+        return ERR_NOT_FOUND;
+    }
+    //console.log(this.name + ' is fleeing');
+    return OK;
+}
+        return 1;
+    }
+};
+
+Creep.prototype.dismantleStructure = function(struct){
+    if(struct == undefined){
+        return ERR_NOT_FOUND;
+    }
+    else if(!Array.isArray(struct)){
+        struct = [struct];
+    }
+    
+    let st = this.moveTo(struct,1);
+    if(st != OK && st != ERR_NOT_FOUND){
+        return this.creep.dismantle(st);
+    }
+    if(st <0){
+        return st;
     }
     else {
         return 1;
@@ -768,80 +900,6 @@ Creep.prototype.flee = function(hostiles, fleeRange){
     }
     
     //console.log('In range ' + inRange);
-    
-    if(inRange && !this.creep.fatigue){
-        let goals = [];
-        for(let i=0; i<hostiles.length; i++){
-            goals.push({pos: hostiles[i].pos, range: fleeRange});
-        }
-        
-        let res = PathFinder.search(this.creep.pos, goals, 
-        {
-            plainCost: 2,
-            swampCost: 10,
-            flee: true,
-            roomCallback: (roomName) => {
-                if(!Game.rooms[roomName]) return;
-                let costs = Game.rooms[roomName].memory.CombatCostMatrix;
-                if(costs){
-                    return PathFinder.CostMatrix.deserialize(costs)
-                }
-                return PathFinder.CostMatrix.deserialize(Game.rooms[roomName].memory.CostMatrix)
-            },
-        });
-        
-        let path = res.path.splice(0,Math.ceil((res.path.length+1)/2));
-        
-        if(!path.length){
-            return ERR_NOT_FOUND;
-        }
-        
-        this.creep.move(this.creep.pos.getDirectionTo(path.shift()));
-        this.creep.memory.path = path;
-    }
-    else if(!inRange){
-        return ERR_NOT_FOUND;
-    }
-    //console.log(this.creep.name + ' is fleeing');
-    return OK;
-}
-
-
-module.exports = Creep;)}],0);        
-    }
-    else {
-        //console.log(creep.name + ' going to known room');
-        //let start = Game.cpu.getUsed();
-        //let rtn = this.moveTo([{pos: {x: 24,y: 24,'roomName': roomName}}], 24);
-        //let time = Game.cpu.getUsed() - start;
-        //console.log(creep.name + ' going to known room cost ' + time);
-        return this.moveTo([{pos: {x: 24,y: 24,'roomName': roomName}}], 23);
-    }
-};
-
-Creep.prototype.flee = function(hostiles, fleeRange){
-    //Flee from hostiles
-    if(hostiles == undefined){
-        hostiles = util.gatherObjectsInArrayFromIds(this.creep.room.memory.defense.hostiles,'melee','ranged','meleeHeal','meleeRanged','rangedHeal','hybrid');
-    }
-    else if(!Array.isArray(hostiles)){
-        hostiles = [hostiles];
-    }
-    if(!hostiles.length){
-        return ERR_NOT_FOUND;
-    }
-    if(fleeRange == undefined){
-        fleeRange = 4;
-    }
-    //console.log(this.creep.name + ' Hostiles to flee from ' + hostiles);
-    
-    let inRange = false;
-    for(let i=0; i<hostiles.length && !inRange; i++){
-        inRange = this.creep.pos.inRangeTo(hostiles[i].pos,fleeRange);
-    }
-    
-    //console.log('In range ' + inRange);
-    
     if(inRange && !this.creep.fatigue){
         let goals = [];
         for(let i=0; i<hostiles.length; i++){

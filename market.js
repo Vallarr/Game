@@ -1,12 +1,3 @@
-/*
- * Module code goes here. Use 'module.exports' to export things:
- * module.exports.thing = 'a thing';
- *
- * You can import it from another modules like this:
- * var mod = require('market');
- * mod.thing == 'a thing'; // true
- */
- 
 var Market = function(){
      
 };
@@ -113,6 +104,14 @@ Market.prototype.transferResources = function(transfer){
             if(amount >= 100){
                 //console.log('Amount of resource ' + transfer[i].resourceType + ' that can be transfered is ' + amount);
                 console.log('Transfering ' + amount + ' units of ' + transfer[i].resourceType + ' from room ' + transfer[i].from + ' to room ' + transfer[i].to + ' ' + Game.rooms[transfer[i].from].terminal.send(transfer[i].resourceType,amount,transfer[i].to));
+                transfer[i].amount -= amount;
+                //console.log('Left of resource ' + transfer[i].resourceType + ' is ' + transfer[i].amount);                
+            }
+        }
+    }
+};
+
+module.exports = Market;o));
                 transfer[i].amount -= amount;
                 //console.log('Left of resource ' + transfer[i].resourceType + ' is ' + transfer[i].amount);                
             }

@@ -1,3 +1,15 @@
+global.ALLIES = {
+    'Rajecz': true,
+    'Dewey' : true,
+    'CrazyPilot' : true,
+    'Lamus' : true,
+    'Tirao' : true,
+    'Helam': true,
+    'McGnomington': true,
+    'Dragnar': true
+};
+
+
 global.TYPE_SETTLER = 'settler';
 global.TYPE_EXPLORER = 'explorer';
 global.TYPE_ADVENTURER = 'adventurer';

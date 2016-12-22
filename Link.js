@@ -1,24 +1,17 @@
-
-var Link = function(room){
-    this.room = room;
-};
-
-Link.prototype.linkEnergy = function(){
-    let room = this.room;
-    
-    let roomLinks = room.links;
+Room.prototype.linkEnergy = function(){
+    let roomLinks = this.links;
     if(roomLinks == undefined){
         return;
     }
     //console.log(JSON.stringify(roomLinks));
-    let storageLinks = getArrayObjectsById(roomLinks.storage);
+    let storageLinks = util.gatherObjectsInArrayFromIds(roomLinks,'storage');
     if(roomLinks.storage == undefined){
         //Need a storage link, since everything is linked to it.
         return;
     }
-    let sourceLinks = getArrayObjectsById(roomLinks.source);
-    let upgraderLinks = getArrayObjectsById(roomLinks.upgrader);
-    let spawnLinks = getArrayObjectsById(roomLinks.spawn);
+    let sourceLinks = util.gatherObjectsInArrayFromIds(roomLinks,'source');
+    let upgraderLinks = util.gatherObjectsInArrayFromIds(roomLinks,'upgrader');
+    let spawnLinks = util.gatherObjectsInArrayFromIds(roomLinks,'spawn');
     
     //Link sources to spawn or storage
     if(sourceLinks){
@@ -27,12 +20,9 @@ Link.prototype.linkEnergy = function(){
     
     //Link storage to spawn or upgrader
     this.linkFromTo(storageLinks,spawnLinks,upgraderLinks);
-    
-    
-    
 };
 
-Link.prototype.linkFromTo = function(from){
+Room.prototype.linkFromTo = function(from){
     //Specify from which link energy is to be transfered and any number of target groups
     if(!from.length){
         return ERR_NOT_FOUND;
@@ -46,23 +36,22 @@ Link.prototype.linkFromTo = function(from){
             let targetLinks = {};
             for(let j=1; j<arguments.length; j++){
                 to = arguments[j];
-                targetLink = this.bestTransfer(from[i],to);
-                if(!(targetLink == ERR_NOT_FOUND)){
-                    this.transfer(from[i],targetLink);
+                targetLink = from[i].bestTransfer(to);
+                if(targetLink != ERR_NOT_FOUND){
+                    from[i].transfer(targetLink);
                     break;
                 }
             }
         }
     }
-}
+};
 
-
-Link.prototype.bestTransfer = function(from,to){
+StructureLink.prototype.bestTransfer = function(to){
     if(!to.length){
         return ERR_NOT_FOUND;
     }
     let bestLink = {};
-    let toTransfer = from.energyCapacity;
+    let toTransfer = this.energyCapacity;
     let amountMax = 0;
     let amount = 0;
     for(let i=0; i<to.length; i++){
@@ -86,23 +75,9 @@ Link.prototype.bestTransfer = function(from,to){
     }
 };
 
-Link.prototype.transfer = function(fromLink,targetLink,amount){
+StructureLink.prototype.transfer = function(targetLink,amount){
     if(amount == undefined){
-        amount = Math.min(fromLink.energy,targetLink.energyCapacity - targetLink.energy);
+        amount = Math.min(this.energy,targetLink.energyCapacity - targetLink.energy);
     }
-    return fromLink.transferEnergy(targetLink, amount);
+    return this.transferEnergy(targetLink, amount);
 };
-
-
-var getArrayObjectsById = function(ids){
-    if(!Array.isArray(ids)){
-        return ERR_INVALID_ARGS;
-    }
-    let objects = [];
-    for(let i=0; i<ids.length; i++){
-        objects.push(Game.getObjectById(ids[i]));
-    }
-    return objects;
-};
-
-module.exports = Link;

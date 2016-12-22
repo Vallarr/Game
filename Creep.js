@@ -1,31 +1,27 @@
-/*
- * Module code goes here. Use 'module.exports' to export things:
- * module.exports.thing = 'a thing';
- *
- * You can import it from another modules like this:
- * var mod = require('Creep');
- * mod.thing == 'a thing'; // true
- */
+require('Creep.roles');
  
-Creep.prototype.animate = function(exploreRooms,claimRooms){
+Creep.prototype.animate = function(){
+    //console.log('Animating ' + this.name);
+    let creepCPUStart = Game.cpu.getUsed();
+    if(this.spawning){return}
     if(this.moveFromMemory()){return}
     
-    if(exploreRooms == undefined){
+    if(remoteRooms == undefined || remoteRooms[this.memory.type] == undefined){
         this.targetRooms = [this.memory.origin];
     }
-    else if(exploreRooms[this.memory.origin] == undefined || !exploreRooms[this.memory.origin].length){
+    else if(remoteRooms[this.memory.type][this.memory.origin] == undefined || !remoteRooms[this.memory.type][this.memory.origin].length){
         console.log('No target rooms specified for ' + this.memory.role + ' ' + this.memory.type + ' ' + this.name + ' of room ' + this.memory.origin);
         return;            
     }
     else {
-        this.targetRooms = exploreRooms[creep.memory.origin];
+        this.targetRooms = remoteRooms[this.memory.type][this.memory.origin];
     }
-    
+
     if(this.memory.role == 'harvester') {
         this.creepHarvest()
     }
     if(this.memory.role == 'miner'){
-        this.creepDedicatedMiner();
+        this.creepMiner();
     }
     if(this.memory.role == 'transporter' || this.memory.role == 'filler'){
         if(this.memory.type == 'settler'){
@@ -39,41 +35,50 @@ Creep.prototype.animate = function(exploreRooms,claimRooms){
         }
     }
     if(this.memory.role == 'upgrader') {
-        this.creepExplorerUpgrader();
+        this.creepUpgrader();
     }
     if(this.memory.role == 'builder') {
-        this.creepExplorerBuild();
+        this.creepBuild();
     }
     if(this.memory.role == 'repairer') {
-        this.creepExplorerRepair();
+        this.creepRepair();
     }
     if(this.memory.role == 'reserver'){
-        this.creepExplorerReserver();
+        this.creepReserver();
     }
     if(this.memory.role == 'melee') {
         if(this.memory.type == 'explorer'){
-            this.creepExplorerMelee(this,exploreRooms);
+            this.creepExplorerMelee();
         }
         else if(this.memory.type == 'adventurer'){
-            this.creepExplorerCombat();
+            this.creepCombat();
         }
     }
     if(this.memory.role == 'ranged') {
         if(this.memory.type == 'adventurer'){
-            this.creepExplorerCombat();
+            this.creepCombat();
         }
     }  
     if(this.memory.role == 'hybrid') {
         if(this.memory.type == 'adventurer'){
-            this.creepExplorerCombat();
+            this.creepCombat();
         }
     }                  
     if(this.memory.role == 'patroller' || this.memory.role == 'patrollerRanged') {
         if(this.memory.type == 'adventurer'){
-            this.creepExplorerPatroll();
+            this.creepPatroll();
         }
-    }                  
-}
+    }
+    this.memory.cpu += Game.cpu.getUsed() - creepCPUStart;
+    if(this.ticksToLive == 1){
+        if(this.memory.role == 'reserver'){
+            console.log(this.memory.role + ' creep ' + this.name + ' died. It used an average of ' + this.memory.cpu / CREEP_CLAIM_LIFE_TIME + ' cpu units per tick');
+        }
+        else {
+            console.log(this.memory.role + ' creep ' + this.name + ' died. It used an average of ' + this.memory.cpu / CREEP_LIFE_TIME + ' cpu units per tick');
+        }
+    }
+};
 
 Creep.prototype.moveFromMemory = function(){
     if(!this.fatigue && this.memory.path && this.memory.path.length){
@@ -85,11 +90,9 @@ Creep.prototype.moveFromMemory = function(){
     if(this.room.memory.defense.underAttack && this.memory.role != 'melee' && this.memory.role != 'ranged' && this.memory.role != 'hybrid' && this.memory.role != 'patroller' && this.memory.role != 'patrollerRanged' && this.flee() != ERR_NOT_FOUND){
         return true;
     }
+    if(this.fatigue && this.memory.path && this.memory.path.length){
+        //Creep will still move in comming ticks -> don't need to reexecute creep script
+        return true;
+    }
     return false;
-}
- 
-Creep.prototype.test = function(){
-    console.log('Testing');
-}
-
-module.exports = 'extenedCreepPrototype';
+};

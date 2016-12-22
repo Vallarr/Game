@@ -1,50 +1,17 @@
-global.creepsToSpawn = {'W15N8':   {settler: {harvester: 4, transporter: 0, filler: 2, repairer: 3, builder: 0, upgrader: 3, melee: 0, miner: 0},
-                                    explorer: {harvester: 0, transporter: 0, repairer: 0, builder: 0, reserver: 0, upgrader: 0, melee: 0},
-                                    adventurer: {harvester: 0, transporter: 0, repairer: 0, builder: 0, melee: 0, ranged: 0, hybrid: 0, patroller: 0, patrollerRanged: 0}}
-                        };
-var defaultCreepBodies =   {settler:   {harvester: [WORK,MOVE,WORK,WORK,MOVE,WORK,WORK,CARRY,MOVE],
-                                        transporter: [CARRY,CARRY,MOVE,CARRY,CARRY,MOVE,CARRY,CARRY,MOVE,CARRY,CARRY,MOVE,CARRY,CARRY,MOVE,CARRY,CARRY,MOVE,CARRY,CARRY,MOVE,CARRY,CARRY,MOVE],
-                                        filler: [CARRY,CARRY,MOVE,CARRY,CARRY,MOVE,CARRY,CARRY,MOVE,CARRY,CARRY,MOVE,CARRY,CARRY,MOVE,CARRY,CARRY,MOVE,CARRY,CARRY,MOVE,CARRY,CARRY,MOVE],
-                                        repairer: [WORK,CARRY,MOVE,WORK,CARRY,MOVE,WORK,CARRY,MOVE,WORK,CARRY,MOVE,WORK,CARRY,MOVE,WORK,CARRY,MOVE],
-                                        builder: [WORK,CARRY,MOVE,WORK,CARRY,MOVE,WORK,CARRY,MOVE,WORK,CARRY,MOVE,WORK,CARRY,MOVE,WORK,CARRY,MOVE],
-                                        upgrader: [WORK,WORK,WORK,MOVE,WORK,WORK,CARRY,MOVE,WORK,WORK,WORK,WORK,WORK,CARRY,MOVE,WORK,WORK,WORK,MOVE,WORK,WORK,CARRY,MOVE,WORK,WORK,WORK,MOVE,WORK,WORK,CARRY,MOVE,WORK,WORK,WORK,WORK,WORK,CARRY,MOVE,WORK,WORK,WORK,MOVE,WORK,WORK,CARRY,MOVE],
-                                        miner: [WORK,WORK,WORK,MOVE,WORK,WORK,CARRY,MOVE,WORK,WORK,WORK,WORK,WORK,CARRY,MOVE,WORK,WORK,WORK,MOVE,WORK,WORK,CARRY,MOVE,WORK,WORK,WORK,MOVE,WORK,WORK,CARRY,MOVE,WORK,WORK,WORK,WORK,WORK,CARRY,MOVE,WORK,WORK,WORK,MOVE,WORK,WORK,CARRY,MOVE]},
-                            explorer:  {harvester: [WORK,MOVE,WORK,WORK,MOVE,WORK,WORK,CARRY,MOVE],
-                                        transporter: [CARRY,CARRY,MOVE,CARRY,CARRY,MOVE,CARRY,CARRY,MOVE,CARRY,CARRY,MOVE,CARRY,CARRY,MOVE,CARRY,CARRY,MOVE,CARRY,CARRY,MOVE,CARRY,CARRY,MOVE,CARRY,CARRY,MOVE,CARRY,CARRY,MOVE,CARRY,CARRY,MOVE,CARRY,CARRY,MOVE,CARRY,CARRY,MOVE,CARRY,CARRY,MOVE,CARRY,CARRY,MOVE,CARRY,CARRY,MOVE],
-                                        repairer: [WORK,CARRY,MOVE,WORK,CARRY,MOVE,WORK,CARRY,MOVE,WORK,CARRY,MOVE,WORK,CARRY,MOVE,WORK,CARRY,MOVE],
-                                        builder: [WORK,CARRY,MOVE,WORK,CARRY,MOVE,WORK,CARRY,MOVE,WORK,CARRY,MOVE,WORK,CARRY,MOVE,WORK,CARRY,MOVE],
-                                        reserver: [CLAIM,CLAIM,MOVE,MOVE],
-                                        upgrader: [WORK,WORK,WORK,WORK,WORK,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE,MOVE],
-                                        melee: [TOUGH,TOUGH,TOUGH,TOUGH,ATTACK,ATTACK,ATTACK,ATTACK,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE]},
-                            adventurer:{harvester: [WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE],
-                                        transporter: [CARRY,CARRY,MOVE,CARRY,CARRY,MOVE,CARRY,CARRY,MOVE,CARRY,CARRY,MOVE,CARRY,CARRY,MOVE,CARRY,CARRY,MOVE,CARRY,CARRY,MOVE,CARRY,CARRY,MOVE,CARRY,CARRY,MOVE,CARRY,CARRY,MOVE,CARRY,CARRY,MOVE,CARRY,CARRY,MOVE,CARRY,CARRY,MOVE,CARRY,CARRY,MOVE,CARRY,CARRY,MOVE,CARRY,CARRY,MOVE],
-                                        repairer: [WORK,CARRY,MOVE,WORK,CARRY,MOVE,WORK,CARRY,MOVE,WORK,CARRY,MOVE,WORK,CARRY,MOVE,WORK,CARRY,MOVE],
-                                        builder: [WORK,CARRY,MOVE,WORK,CARRY,MOVE,WORK,CARRY,MOVE,WORK,CARRY,MOVE,WORK,CARRY,MOVE,WORK,CARRY,MOVE], 
-                                        melee: [TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE],
-                                        ranged: [TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE],
-                                        hybrid: [MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,RANGED_ATTACK,ATTACK,RANGED_ATTACK,ATTACK,RANGED_ATTACK,ATTACK,RANGED_ATTACK,ATTACK,RANGED_ATTACK,ATTACK,RANGED_ATTACK,ATTACK,RANGED_ATTACK,ATTACK,RANGED_ATTACK,ATTACK,RANGED_ATTACK,ATTACK,RANGED_ATTACK,ATTACK,HEAL,HEAL,HEAL,HEAL,HEAL],
-                                        patroller: [MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,HEAL,HEAL,HEAL,HEAL,HEAL],
-                                        patrollerRanged: [MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,HEAL,HEAL,HEAL,HEAL,HEAL]}
-                            };                  
-var creepBodies =   {'W15N8': {settler:   {},
-                                explorer:  {}}                      
-                    };
- 
- 
- var Spawn = function(spawn,explorerRooms,adventureRooms){
+ var Spawn = function(spawn){
      this.spawn = spawn;
      this.spawning = spawn.spawning;
-     this.explorerRooms = explorerRooms;
-     this.adventureRooms = adventureRooms;
+     this.explorerRooms = remoteRooms['explorer'];
+     this.adventureRooms = remoteRooms['adventurer'];
      this.checkExplorerAttack();
-     if(adventureRooms){
-         this.checkAttack(adventureRooms,'adventurer');
+     if(this.adventureRooms){
+         this.checkAttack(this.adventureRooms,'adventurer');
      }
      //console.log('Spawn checked ' + this.spawn.name);
      this.roles = {settler: undefined, defender: undefined, explorer: undefined, adventurer: undefined};
      this.roles.settler = ['harvester','transporter','filler','repairer','builder','upgrader','melee','miner'];
      this.roles.defender = ['repairer','builder','melee','ranged']
-     this.roles.explorer = ['melee','harvester','transporter','repairer','builder','reserver','upgrader'];
+     this.roles.explorer = ['melee','harvester','reserver','transporter','repairer','builder','upgrader'];
      this.roles.adventurer = ['hybrid','ranged','patroller','patrollerRanged','melee','harvester','transporter','repairer','builder'];
  };
  
@@ -93,8 +60,8 @@ Spawn.prototype.checkAttack = function(targetRooms,type){
          essential = false;
      }     
      
-     let maxCost = this.spawn.energyCapacity + this.spawn.room.memory.energy.extensions.max;
-     let avEnergy = this.spawn.room.memory.energy[this.spawn.name] + this.spawn.room.memory.energy.extensions.available;
+     let maxCost = this.spawn.energyCapacity + this.spawn.room.energy.extensions.max;
+     let avEnergy = this.spawn.room.energy[this.spawn.name] + this.spawn.room.energy.extensions.available;
      
      let body = undefined;
      if(!creepBodies[this.spawn.room.name] || !creepBodies[this.spawn.room.name][creepType] || !creepBodies[this.spawn.room.name][creepType][needSpawn.role]){
@@ -110,7 +77,7 @@ Spawn.prototype.checkAttack = function(targetRooms,type){
     if(essential && bodyCost > avEnergy){
          //Spawn best creep you can with available energy
          let nTransporters = undefined;
-         if(this.spawn.room.memory.creeps && this.spawn.room.memory.creeps['settler']){nTransporters = this.spawn.room.memory.creeps['settler']['transporter']}
+         if(this.spawn.room.memory.creeps && this.spawn.room.memory.creeps['settler']){nTransporters = this.spawn.room.memory.creeps['settler']['filler']}
          if((!nTransporters && avEnergy >= SPAWN_ENERGY_START) || (nTransporters && avEnergy == maxCost)){
              //Spawns and extensions won't be filled by transporters and energy won't regenerate OR spawns will be filled but bodyCost is higher than maxCost
              body = this.reduceBody(body,avEnergy)             
