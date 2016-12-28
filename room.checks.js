@@ -461,7 +461,4 @@ Room.prototype.searchDroppedResources = function(){
     //Look for all dropped resources in the room
     let droppedResources = this.find(FIND_DROPPED_RESOURCES);
     roomObjects[this.name].dropped = util.gatherIdsInArrayFromObjects(droppedResources);
-};cts(droppedResources);
 };
-
-module.exports = RoomChecks;

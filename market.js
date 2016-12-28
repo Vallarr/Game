@@ -111,12 +111,4 @@ Market.prototype.transferResources = function(transfer){
     }
 };
 
-module.exports = Market;o));
-                transfer[i].amount -= amount;
-                //console.log('Left of resource ' + transfer[i].resourceType + ' is ' + transfer[i].amount);                
-            }
-        }
-    }
-};
-
 module.exports = Market;
