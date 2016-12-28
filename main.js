@@ -1,7 +1,7 @@
 var Utilities = require('Game.utilities');
 global.util = new Utilities();
 require('Global.variables');
-//require('Global.constants');
+require('Global.constants');
 require('Creep');
 require('Room.checks');
 require('Room.build');

@@ -33,6 +33,9 @@ Creep.prototype.animate = function(){
         else if(this.memory.type == 'adventurer'){
             this.creepExplorerTransporter();
         }
+        else if(this.memory.type = 'starter'){
+            this.creepStarterTransporter();
+        }
     }
     if(this.memory.role == 'upgrader') {
         this.creepUpgrader();
@@ -42,6 +45,9 @@ Creep.prototype.animate = function(){
     }
     if(this.memory.role == 'repairer') {
         this.creepRepair();
+    }
+    if(this.memory.role == 'dismantler') {
+        this.creepDismantle();
     }
     if(this.memory.role == 'reserver'){
         this.creepReserver();

@@ -11,11 +11,13 @@ Spawn.prototype.run = function(){
     this.roles = {settler: undefined, defender: undefined, explorer: undefined, adventurer: undefined};
     this.roles.settler = ['harvester','transporter','filler','repairer','builder','upgrader','melee','miner'];
     this.roles.defender = ['repairer','builder','melee','ranged']
-    this.roles.explorer = ['melee','harvester','reserver','transporter','repairer','builder','upgrader'];
+    this.roles.explorer = ['melee','harvester','reserver','transporter','repairer','builder','upgrader','dismantler'];
     this.roles.adventurer = ['hybrid','ranged','patroller','patrollerRanged','melee','harvester','transporter','repairer','builder'];
+    this.roles.starter = ['reserver','harvester','transporter','repairer','builder','upgrader'];
     this.spawnCreep('settler',true);
     this.spawnCreep('explorer',true);
     this.spawnCreep('adventurer');
+    this.spawnCreep('starter');
 };
  
 Spawn.prototype.checkExplorerAttack = function(){
@@ -54,8 +56,8 @@ Spawn.prototype.spawnCreep = function(creepType,essential){
      
     if(essential == undefined){essential = false}     
      
-    let maxCost = this.energyCapacity + this.room.energy.extensions.max;
-    let avEnergy = this.room.energy[this.name] + this.room.energy.extensions.available;
+    let maxCost = this.room.energyCapacityAvailable;
+    let avEnergy = this.room.energyAvailable;
      
     let body = undefined;
     if(!creepBodies[this.room.name] || !creepBodies[this.room.name][creepType] || !creepBodies[this.room.name][creepType][needSpawn.role]){

@@ -51,12 +51,34 @@ Util.prototype.getArrayObjectsById = function(ids){
         return objects;
     }
     for(let i=0; i<ids.length; i++){
-        objects.push(Game.getObjectById(ids[i]));
-        if(objects[objects.length-1] == undefined){
-            objects.pop();
+        let obj = Game.getObjectById(ids[i]);
+        if(obj){
+            objects.push(obj);
         }
     }
     return objects;
+};
+
+Util.prototype.concatArraysInObject = function(object){
+    let array = [];
+    if(object == undefined){
+        return array;
+    }
+    
+    if(arguments.length == 1){
+        for(let ar in object){
+            if(Array.isArray(object[ar])){
+                array = array.concat(object[ar]);
+            }
+        }
+    }
+    else {
+        for(let i=1; i<arguments.length; i++){
+            if(Array.isArray(object[arguments[i]])){
+                array = array.concat(arguments[i]);
+            }
+        }        
+    }
 };
 
 Util.prototype.countCreeps = function(){
@@ -124,7 +146,7 @@ Util.prototype.findDifferent = function(array1,array2,f){
 
 Util.prototype.findArrayOfDifferentElements = function(array1,array2){
     //Find and return all elements in array1 that are not present in array 2
-    if(array1 == undefined || array2 == undefined){
+    /*if(array1 == undefined || array2 == undefined){
         return ERR_INVALID_ARGS;
     }
     else if(!Array.isArray(array1) || !Array.isArray(array2)){
@@ -139,6 +161,35 @@ Util.prototype.findArrayOfDifferentElements = function(array1,array2){
             if(array1[i].id == array2[j].id){
                 match = true;
             }
+        }
+        if(!match){
+            differentElements.push(array1[i]);
+        }
+    }
+    return differentElements;*/
+    return this.findArrayOfDifferent(array1,array2, (a,b) => {return a.id == b.id});
+};
+
+Util.prototype.findArrayOfDifferentStrings = function(array1,array2){
+    //Find and return all elements in array1 that are not present in array 2
+    return this.findArrayOfDifferent(array1,array2, (a,b) => {return a == b});
+}
+
+Util.prototype.findArrayOfDifferent = function(array1,array2,f){
+    //Find and return all elements in array1 that are not present in array 2
+    if(array1 == undefined || array2 == undefined){
+        return ERR_INVALID_ARGS;
+    }
+    else if(!Array.isArray(array1) || !Array.isArray(array2)){
+        return ERR_INVALID_ARGS;
+    }
+    
+    let differentElements = [];
+    let match = false;
+    for(let i=0; i<array1.length; i++){
+        match = false;
+        for(let j=0; j<array2.length && !match; j++){
+            match = f(array1[i],array2[j]);
         }
         if(!match){
             differentElements.push(array1[i]);
@@ -161,6 +212,21 @@ Util.prototype.findDubbles = function(array){
     }
     return dubbleArray;
 };
+
+Util.prototype.findDubbleStrings = function(array){
+    let dubbleArray = [];
+    let match = false;
+    for(let i=0; i<array.length; i++){
+        match = false;
+        for(let j=i+1; j<array.length && !match; j++){
+            if(array[i] == array[j]){
+                dubbleArray.push(array[i]);
+                match = true;
+            }
+        }
+    }
+    return dubbleArray;    
+}
 
 Util.prototype.countBodyParts = function(hostiles){
     if(hostiles == undefined){

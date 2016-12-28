@@ -1,5 +1,5 @@
 Room.prototype.linkEnergy = function(){
-    let roomLinks = this.links;
+    let roomLinks = roomObjects[this.name].links;
     if(roomLinks == undefined){
         return;
     }

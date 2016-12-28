@@ -14,11 +14,19 @@ Room.prototype.build = function(){
             level = 0;
         }                
         if(struct.RCL <= level){
-            let nBuild = this.find(FIND_STRUCTURES, {
+            let nBuild = undefined;
+            if(roomObjects[this.name].structures[struct.structureType]){
+                nBuild = roomObjects[this.name].structures[struct.structureType].length;
+            }
+            else {
+                nBuild = 0;
+            }
+            
+            /*let nBuild = this.find(FIND_STRUCTURES, {
                 filter: (structure) => {
                     return (structure.structureType == struct.structureType);
                 }
-            }).length;
+            }).length;*/
             let nToBeBuild = this.find(FIND_CONSTRUCTION_SITES, {
                 filter: (site) => {
                     return (site.structureType == struct.structureType);
