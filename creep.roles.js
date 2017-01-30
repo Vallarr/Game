@@ -14,11 +14,13 @@ Creep.prototype.creepHarvest = function(){
                 if(!sourceContainer.length){delete this.memory.sourceContainer} //This container no longer exists
             }
             else {
-                sourceContainer = util.targetsInRange(util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].links,'source').concat(util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].containers,'source')),source,2);
+                sourceContainer = util.targetsInRange(util.gatherObjectsInArray(this.room.links,'source').concat(util.gatherObjectsInArray(this.room.containers,'source')),source,2);
+                //sourceContainer = util.targetsInRange(util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].links,'source').concat(util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].containers,'source')),source,2);
                 if(!sourceContainer.length){
                     let containersToBeBuild = this.room.find(FIND_CONSTRUCTION_SITES, {filter: (site) => {return site.structureType == STRUCTURE_CONTAINER || site.structureType == STRUCTURE_LINK}});
                     sourceContainer = util.targetsInRange(containersToBeBuild,source,2);
                 }
+                //console.log(this.name + ' sourceCont ' + sourceContainer);
                 this.memory.sourceContainer = util.gatherIdsInArrayFromObjects(sourceContainer); 
             }
         }
@@ -35,7 +37,8 @@ Creep.prototype.creepHarvest = function(){
         let occupiedSources = util.targetObjectsOfCreeps('source'); //If this takes a lot of time, can detect setllers and only search their origin room for ocuppied sources.
         for(let i=0; i<this.targetRooms.length; i++){
             if(Game.rooms[this.targetRooms[i]] != undefined){
-                roomSources = roomSources.concat(util.gatherObjectsInArrayFromIds(roomObjects[this.targetRooms[i]].sources,'energy'));
+                //roomSources = roomSources.concat(util.gatherObjectsInArrayFromIds(roomObjects[this.targetRooms[i]].sources,'energy'));
+                roomSources = roomSources.concat(util.gatherObjectsInArray(Game.rooms[this.targetRooms[i]],'sources'));
             }
             else {
                 darkRooms.push(this.targetRooms[i]);
@@ -67,6 +70,7 @@ Creep.prototype.creepHarvest = function(){
     
     if(this.carry.energy == this.carryCapacity){
         let rtn = this.fillContainer(sourceContainer);
+        //console.log(this.name +' sourceCont ' + sourceContainer + ' rtn ' + rtn);
         if(rtn == OK){
             this.harvestSource(source);
         }
@@ -77,7 +81,17 @@ Creep.prototype.creepHarvest = function(){
             this.buildStructure(sourceContainer);
         }
         else if(rtn == ERR_FULL){
-            if(sourceContainer[0].hits < sourceContainer[0].hitsMax){
+            if(sourceContainer.length > 1){
+                this.fillContainer(sourceContainer.filter((c) => {
+                    if(c.structureType == STRUCTURE_LINK){
+                        return c.energy < c.energyCapacity;
+                    }
+                    else {
+                        return _.sum(c.store) < c.storeCapacity;
+                    }
+                }));
+            }
+            else if(sourceContainer[0].hits < sourceContainer[0].hitsMax){
                 this.repairStructure(1,sourceContainer);
             }
             else {
@@ -97,6 +111,10 @@ Creep.prototype.creepDismantle = function(){
         return ERR_NOT_FOUND;
     }
     
+    if(this.memory.building && this.carry.energy == 0){
+        this.memory.building = false;
+    }
+    
     let darkRooms = [];
     let targets = undefined;
     let found = false
@@ -110,8 +128,9 @@ Creep.prototype.creepDismantle = function(){
                 if(!found && dismantle[this.targetRooms[i]].structureTypes){
                     for(let j=0; j<dismantle[this.targetRooms[i]].structureTypes.length; j++){
                         let type = dismantle[this.targetRooms[i]].structureTypes[j];
-                        targets = roomObjects[this.targetRooms[i]].structures[type];
-                        if(targets.length){
+                        //targets = roomObjects[this.targetRooms[i]].structures[type];
+                        targets = Game.rooms[this.targetRooms[i]].structures[type];
+                        if(targets && targets.length){
                             found = true;
                             break;
                         }
@@ -127,62 +146,119 @@ Creep.prototype.creepDismantle = function(){
         if(darkRooms.length){
             this.moveToRoom(darkRooms[0]);
         }
+        else if(this.targetRooms[0] != this.memory.origin){
+            this.targetRooms = [this.memory.origin];
+            return this.creepDismantle();
+        }
         else {
             return ERR_NOT_FOUND;
         }
     }
     
-    if(this.carry.energy < this.carryCapacity){
+    if((this.carry.energy < this.carryCapacity && !this.memory.building) || this.carryCapacity == 0){
         this.dismantleStructure(targets);
     }
     else {
         //store energy
-        let avContainers = util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].containers,'source','spawn','storage').filter((cont) => {return _.sum(cont.store) < cont.storeCapacity});
-        let avLinks = util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].links,'source','spawn').filter((link) => {return link.energy < link.energyCapacity});;
+        if(this.memory.building){
+            let sites = this.room.find(FIND_CONSTRUCTION_SITES);
+            if(this.buildStructure(sites) != ERR_NOT_FOUND){return}
+        }
+        //let avContainers = util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].containers,'source','spawn','storage').filter((cont) => {return _.sum(cont.store) < cont.storeCapacity});
+        let avContainers = util.gatherObjectsInArray(this.room.containers,'source','spawn','storage').filter((cont) => _.sum(cont.store) < cont.storeCapacity);
+        //let avLinks = util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].links,'source','spawn').filter((link) => {return link.energy < link.energyCapacity});
+        let avLinks = util.gatherObjectsInArray(this.room.links,'source','spawn').filter((link) => link.energy < link.energyCapacity);
         let targets = avContainers.concat(avLinks);
         if(this.transferResources(targets) == ERR_NOT_FOUND){
-            if(this.room.name  != this.memory.origin){
-                this.moveToRoom(this.memory.origin);
+            let construct = this.room.find(FIND_CONSTRUCTION_SITES);
+            if(this.buildStructure(construct) == ERR_NOT_FOUND){
+                this.memory.building = false;
+                if(this.room.name  != this.memory.origin){
+                    this.moveToRoom(this.memory.origin);
+                }                
+            }
+            else {
+                this.memory.building = true;
             }
         }
     }        
 };
 
 Creep.prototype.creepMiner = function(){
-    if(this.room.name != this.memory.origin){
-        this.moveToRoom(this.memory.origin);
-        return;
-    }               
-    
     let mineralSource = [];
     let extractor = [];
-    if(this.memory.mineralSource && this.memory.extractor){
-        //console.log('Get mineral source');
+    if(this.memory.mineRoom && this.memory.mineralSource && this.memory.extractor){
+        if(Game.rooms[this.memory.mineRoom] == undefined){
+            this.moveToRoom(this.memory.mineRoom);
+            return;
+        }
         mineralSource.push(Game.getObjectById(this.memory.mineralSource));
-        extractor.push(Game.getObjectById(this.memory.extractor));
-        //console.log('Mineral ' + mineralSource + ' extractor ' + extractor);
+        extractor.push(Game.getObjectById(this.memory.extractor));        
     }
     else {
-        //Always max 1 source and 1 extractor per room
-        mineralSource = util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].sources,'mineral');
-        this.memory.mineralSource = mineralSource[0].id;
-        extractor = util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].structures,STRUCTURE_EXTRACTOR);
-        if(extractor.length){
-            this.memory.extractor = extractor[0].id;
+        let foundDeposit = false;
+        let darkRooms = [];
+        let mineralDeposits = [];
+        //console.log(this.name + ' targetRooms ' + this.targetRooms);
+        for(let i=0; i<this.targetRooms.length; i++){
+            if(Game.rooms[this.targetRooms[i]] != undefined){
+                //let mine = Game.getObjectById(roomObjects[this.targetRooms[i]].sources.mineral);
+                let mine = Game.rooms[this.targetRooms[i]].mineral
+                //console.log(this.name + ' mine ' + mine);
+                if(mine && mine[0].mineralAmount > 0){
+                    mineralDeposits.push(mine[0]);
+                }
+            }
+            else {
+                darkRooms.push(this.targetRooms[i]);
+            }
         }
-        else {
-            console.log(this.memory.role + ' ' + this.name + ' cannot mine minerals, because there is no extractor');
+        if(mineralDeposits.length){
+            let occupiedDeposits = util.targetObjectsOfCreeps('mineralSource');
+            let target = undefined;
+            //console.log(this.name + ' occupied ' + occupiedDeposits + ' all ' + mineralDeposits);
+            while(!foundDeposit){
+                target = util.findDifferentElement(mineralDeposits,occupiedDeposits);
+                //console.log(this.name + ' target ' + JSON.stringify(target));
+                if(target != ERR_NOT_FOUND){
+                    mineralSource.push(target);
+                    this.memory.mineralSource = target.id;
+                    this.memory.mineRoom = target.room.name;
+                    //extractor = util.gatherObjectsInArrayFromIds(roomObjects[target.room.name].structures,STRUCTURE_EXTRACTOR);
+                    extractor = util.gatherObjectsInArray(target.room.structures,STRUCTURE_EXTRACTOR);
+                    if(extractor.length){
+                        this.memory.extractor = extractor[0].id;
+                    }
+                    else {
+                        console.log(this.memory.role + ' ' + this.name + ' cannot mine minerals, because there is no extractor');
+                    }
+                    foundDeposit = true;
+                }
+                if(!foundDeposit) {
+                    if(darkRooms.length){
+                        this.moveToRoom(darkRooms[0]);
+                        return;
+                    }
+                    else {
+                        occupiedDeposits = util.findDubbles(occupiedDeposits);
+                    }
+                }
+            }            
         }
     }
-    if(mineralSource[0].mineralAmount > 0){
+
+    if(extractor.length && mineralSource.length && mineralSource[0].mineralAmount > 0){
         if(_.sum(this.carry) == this.carryCapacity){
-            let mineralContainers = util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].containers,'mineral','storage').filter((cont) => {return _.sum(cont.store) < cont.storeCapacity});
+            //let mineralContainers = util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].containers,'mineral','storage').filter((cont) => {return _.sum(cont.store) < cont.storeCapacity});
+            let mineralContainers = util.gatherObjectsInArray(this.room.containers,'mineral','storage').filter((cont) => _.sum(cont.store) < cont.storeCapacity);
             let rtn = this.transferResources(mineralContainers);
             if(rtn == OK && !extractor[0].cooldown){
                 this.harvestSource(mineralSource);
             }
             else if(rtn == ERR_NOT_FOUND){
-                this.say('Store full');
+                if(this.room.name != this.memory.origin){
+                    this.moveToRoom(this.memory.origin)
+                }
             }
         }
         else if(!extractor[0].cooldown){
@@ -190,19 +266,28 @@ Creep.prototype.creepMiner = function(){
             this.harvestSource(mineralSource);
         }            
     }
-    else if(this.carry[mineralSource[0].mineralType] > 0){
-        //Store resources
-        let mineralContainers = util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].containers,'mineral','storage').filter((cont) => {return _.sum(cont.store) < cont.storeCapacity});
-        if(this.transferResources(mineralContainers) == ERR_NOT_FOUND){
-            this.say('Store full');
-        }
-    }
-    else if(this.room.controller && this.room.controller.owner && this.room.controller.owner.username == 'Vervust' && this.room.controller.level < 8){
-        this.creepUpgrader();
-    }
     else {
-        this.creepRepair();
+        delete this.memory.mineralSource;
+        delete this.memory.mineRoom;
+        delete this.memory.extractor;
+        if(_.sum(this.carry) > this.carry.energy){
+            //Store resources
+            //let mineralContainers = util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].containers,'mineral','storage').filter((cont) => {return _.sum(cont.store) < cont.storeCapacity});
+            let mineralContainers = util.gatherObjectsInArray(this.room.containers,'mineral','storage').filter((cont) => _.sum(cont.store) < cont.storeCapacity);
+            if(this.transferResources(mineralContainers) == ERR_NOT_FOUND){
+                this.say('Store full');
+            }
+        }
+        else if(this.room.controller && this.room.controller.owner && this.room.controller.owner.username == 'Vervust' && this.room.controller.level < 8){
+            //console.log(this.name + ' upgrade ');
+            this.creepUpgrader();
+        }
+        else {
+            //console.log(this.name + ' repair');
+            this.creepRepair();
+        }        
     }
+
 };
 
 Creep.prototype.creepDedicatedTransporter = function(){
@@ -272,16 +357,37 @@ Creep.prototype.creepDedicatedTransporter = function(){
         //console.log(this.name + ' fillspawn or underAttack ' + this.memory.role);
         if(this.carry.energy == 0){
             //Get energy
-            let toFillUpgraderLinks = util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].links,'upgrader').filter((link) => {return link.energy == 0});
-            let sourceLinks = util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].links,'source');
+            //let toFillUpgraderLinks = util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].links,'upgrader').filter((link) => {return link.energy == 0});
+            let toFillUpgraderLinks = util.gatherObjectsInArray(this.room.links,'upgrader').filter((link) => link.energy == 0);
+            //let sourceLinks = util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].links,'source');
+            let sourceLinks = util.gatherObjectsInArray(this.room.links,'source');
             let storageLink = undefined;
             if(!toFillUpgraderLinks.length){
-                storageLink = util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].links,'storage');	                    
+                //storageLink = util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].links,'storage');
+                storageLink = util.gatherObjectsInArray(this.room.links,'storage');
             }
             else {storageLink = []}
-            let containers = util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].containers,'spawn','source','storage');
-            let LinksAndContainers = sourceLinks.concat(storageLink,containers);
+            //let containers = util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].containers,'spawn','source');
+            let containers = util.gatherObjectsInArray(this.room.containers,'spawn','source');
+            let storage = undefined;
+            if(this.room.storage){
+                storage = [this.room.storage].filter((st) => st.store.energy > 0);
+            }
+            else {storage = []}
+            let terminal = undefined;
+            if(this.room.terminal && this.room.memory.orders && this.room.memory.orders.energy < -this.carryCapacity){
+                //Terminal is set to remove energy from it -> take from terminal
+                terminal = [this.room.terminal].filter((term) => term.store.energy > 0);
+                //console.log(this.name + ' ' + terminal);
+            }
+            else {terminal = []}
+            let LinksAndContainers = containers.concat(sourceLinks,storageLink,storage,terminal);
             let target = findFilledContainerForCreep(this,LinksAndContainers,0,2);
+            //console.log(this.name + ' ' + target);
+            if(target.structureType == STRUCTURE_TERMINAL){
+                //Energy will be withdrawn from the terminal
+                this.room.memory.orders.energy += this.carryCapacity;
+            }
             //console.log(this.name + ' target ' + target + ' from ' + LinksAndContainers);
             if(target != ERR_NOT_FOUND && this.harvestContainer(target) != OK){
                 //console.log(this.name + ' target id ' + target.id);
@@ -303,7 +409,8 @@ Creep.prototype.creepDedicatedTransporter = function(){
         else if(this.room.memory.defense.underAttack && this.memory.role == 'transporter'){
             this.memory.getting = false;
             //Fill towers
-            let towers = util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].structures,STRUCTURE_TOWER);
+            //let towers = util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].structures,STRUCTURE_TOWER);
+            let towers = util.gatherObjectsInArray(this.room.structures,STRUCTURE_TOWER);
             let targetTower = findNotFilledContainerForCreep(this,towers,0.5,1);
             if(targetTower != ERR_NOT_FOUND){
                 if(this.fillTower(targetTower) != OK){
@@ -315,9 +422,12 @@ Creep.prototype.creepDedicatedTransporter = function(){
     }
     if(!filling && !storing) {
         //console.log(this.name + 'doing extras');
-        let toFillUpgraderLinks = util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].links,'upgrader').filter((link) => {return link.energy == 0});
-        let toFillSpawnContainers = util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].containers,'spawn').filter(function(container){return _.sum(container.store) < container.storeCapacity});
-        let toFillUpgraderContainers = findNotFilledContainerForCreep(this,util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].containers,'upgrader'),1,2);
+        //let toFillUpgraderLinks = util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].links,'upgrader').filter((link) => {return link.energy == 0});
+        let toFillUpgraderLinks = util.gatherObjectsInArray(this.room.links,'upgrader').filter((link) => link.energy == 0);
+        //let toFillSpawnContainers = util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].containers,'spawn').filter(function(container){return _.sum(container.store) < container.storeCapacity});
+        let toFillSpawnContainers = util.gatherObjectsInArray(this.room.containers,'spawn').filter((cont) => _.sum(cont.store) < cont.storeCapacity);
+        //let toFillUpgraderContainers = findNotFilledContainerForCreep(this,util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].containers,'upgrader'),1,2);
+        let toFillUpgraderContainers = findNotFilledContainerForCreep(this,util.gatherObjectsInArray(this.room.containers,'upgrader'),1,2);
         if(toFillUpgraderContainers != ERR_NOT_FOUND){
             toFillUpgraderContainers = [toFillUpgraderContainers];
         }
@@ -331,7 +441,8 @@ Creep.prototype.creepDedicatedTransporter = function(){
 	            let storageLink = undefined;
 	            if(!toFillUpgraderLinks.length){
 	                //If no upgrader containers have to be filled, storage link can be emptied
-	                storageLink = util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].links,'storage');
+	                //storageLink = util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].links,'storage');
+	                storageLink = util.gatherObjectsInArray(this.room.links,'storage');
 	            }
 	            else {storageLink = []}
 	            //console.log(this.name + ' link ' + storageLink);
@@ -345,16 +456,22 @@ Creep.prototype.creepDedicatedTransporter = function(){
 	            }
 	            else if(toFillSpawnContainers.length || toFillUpgraderLinks.length){
 	                if(this.harvestStorage() == ERR_NOT_FOUND){
-    	                let container = findFilledContainerForCreep(this,util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].containers,'source'),1,2);
+    	                //let container = findFilledContainerForCreep(this,util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].containers,'source'),1,2);
+    	                let container = findFilledContainerForCreep(this,util.gatherObjectsInArray(this.room.containers,'source'),1,2);
     	                if(container != ERR_NOT_FOUND){
     	                    this.harvestContainer(container);
     	                }
 	                }
 	            }
 	            else if(this.completeOrders() == ERR_NOT_FOUND){
-    	            let sourceContainers = util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].containers,'source');
-    	            let mineralContainers = util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].containers,'mineral');
-    	            let containers = sourceContainers.concat(mineralContainers);
+    	            //let sourceContainers = util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].containers,'source');
+    	            let sourceContainers = util.gatherObjectsInArray(this.room.containers,'source');
+    	            //let mineralContainers = util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].containers,'mineral');
+    	            let mineralContainers = util.gatherObjectsInArray(this.room.containers,'mineral');
+    	            //let targetLabs = util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].labs,'target');
+    	            let targetLabs = util.gatherObjectsInArray(this.room.labs,'target');
+    	            let containers = sourceContainers.concat(mineralContainers,targetLabs);
+    	            //let containers = sourceContainers.concat(mineralContainers);
     	            let target = findFilledContainerForCreep(this,containers,1,2);
     	            if(target != ERR_NOT_FOUND){
     	                if(this.withdrawResource(target) != OK){
@@ -362,22 +479,31 @@ Creep.prototype.creepDedicatedTransporter = function(){
     	                    this.memory.getting = true;
     	                }
     	            }
+    	            else {
+    	                this.supplyLabs();
+    	            }
 	            }
             }
             else if(this.memory.role == 'transporter'){
 	            if(this.collectDroppedResource() == ERR_NOT_FOUND){
-    	            let sourceContainers = util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].containers,'source');
-    	            let mineralContainers = util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].containers,'mineral');
+    	            //let sourceContainers = util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].containers,'source');
+    	            let sourceContainers = util.gatherObjectsInArray(this.room.containers,'source');
+    	            //let mineralContainers = util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].containers,'mineral');
+    	            let mineralContainers = util.gatherObjectsInArray(this.room.containers,'mineral');
+    	            //let targetLabs = util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].labs,'target');
+    	            let targetLabs = util.gatherObjectsInArray(this.room.labs,'target');
     	            let storageLink = undefined;
     	            if(!toFillUpgraderLinks.length){
     	                //If no upgrader containers have to be filled, storage link can be emptied
-    	                storageLink = util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].links,'storage');
+    	                //storageLink = util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].links,'storage');
+    	                storageLink = util.gatherObjectsInArray(this.room.links,'storage');
     	            }
     	            else {storageLink = []}
-    	            let containers = sourceContainers.concat(storageLink, mineralContainers);
+    	            //let containers = sourceContainers.concat(storageLink, mineralContainers);
+    	            let containers = sourceContainers.concat(storageLink, mineralContainers, targetLabs);
     	            let target = findFilledContainerForCreep(this,containers,1,2);
     	            if(target == ERR_NOT_FOUND && fillSpawn){
-    	                target = findFilledContainerForCreep(this,containers,0,2);
+    	                target = findFilledContainerForCreep(this,sourceContainers.concat(storageLink),0,2);
     	            }
     	            
     	            if(target != ERR_NOT_FOUND){
@@ -386,41 +512,120 @@ Creep.prototype.creepDedicatedTransporter = function(){
     	                    this.memory.getting = true;
     	                }
     	            }
-    	            else if(toFillUpgraderContainers.length || toFillUpgraderLinks.length){
-    	                this.harvestStorage()
+    	            else if(toFillUpgraderContainers.length || toFillUpgraderLinks.length || fillSpawn){
+    	                this.harvestStorage();
     	            }
     	            else if(this.completeOrders() == ERR_NOT_FOUND){
-                        
+                        this.supplyLabs();
     	            }
 	            }	                
+            }
+            else if(this.memory.role == 'courier'){
+                if(this.completeOrders() == ERR_NOT_FOUND){
+                    if(this.collectDroppedResource() == ERR_NOT_FOUND){
+        	            //let sourceContainers = util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].containers,'source');
+        	            let sourceContainers = util.gatherObjectsInArray(this.room.containers,'source');
+        	            //let mineralContainers = util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].containers,'mineral');
+        	            let mineralContainers = util.gatherObjectsInArray(this.room.containers,'mineral');
+        	            //let targetLabs = util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].labs,'target');
+        	            let targetLabs = util.gatherObjectsInArray(this.room.labs,'target');
+        	            let storageLink = undefined;
+        	            if(!toFillUpgraderLinks.length){
+        	                //If no upgrader containers have to be filled, storage link can be emptied
+        	                //storageLink = util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].links,'storage');
+        	                storageLink = util.gatherObjectsInArray(this.room.links,'storage');
+        	            }
+        	            else {storageLink = []}
+        	            //let containers = sourceContainers.concat(storageLink, mineralContainers);
+        	            let containers = sourceContainers.concat(storageLink, mineralContainers, targetLabs);
+        	            let target = findFilledContainerForCreep(this,containers,1,2);
+        	            if(target == ERR_NOT_FOUND && fillSpawn){
+        	                target = findFilledContainerForCreep(this,sourceContainers.concat(storageLink),0,2);
+        	            }
+        	            
+        	            if(target != ERR_NOT_FOUND){
+        	                if(this.withdrawResource(target) != OK){
+        	                    this.memory.targetContainer = target.id;
+        	                    this.memory.getting = true;
+        	                }
+        	            }
+        	            else if(toFillUpgraderContainers.length || toFillUpgraderLinks.length || fillSpawn){
+        	                this.harvestStorage();
+        	            }
+                    }
+                }
+            }
+            else if(this.memory.role == 'labWorker'){
+                if(this.supplyLabs() == ERR_NOT_FOUND){
+    	            //let sourceContainers = util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].containers,'source');
+    	            let sourceContainers = util.gatherObjectsInArray(this.room.containers,'source');
+    	            //let mineralContainers = util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].containers,'mineral');
+    	            let mineralContainers = util.gatherObjectsInArray(this.room.containers,'mineral');
+    	            //let targetLabs = util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].labs,'target');
+    	            let targetLabs = util.gatherObjectsInArray(this.room.labs,'target');
+    	            let storageLink = undefined;
+    	            if(!toFillUpgraderLinks.length){
+    	                //If no upgrader containers have to be filled, storage link can be emptied
+    	                //storageLink = util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].links,'storage');
+    	                storageLink = util.gatherObjectsInArray(this.room.links,'storage');
+    	            }
+    	            else {storageLink = []}
+    	            //let containers = sourceContainers.concat(storageLink, mineralContainers);
+    	            let containers = sourceContainers.concat(storageLink, mineralContainers, targetLabs);
+    	            let target = findFilledContainerForCreep(this,containers,1,2);
+    	            if(target == ERR_NOT_FOUND && fillSpawn){
+    	                target = findFilledContainerForCreep(this,sourceContainers.concat(storageLink),0,2);
+    	            }
+    	            
+    	            if(target != ERR_NOT_FOUND){
+    	                if(this.withdrawResource(target) != OK){
+    	                    this.memory.targetContainer = target.id;
+    	                    this.memory.getting = true;
+    	                }
+    	            }
+    	            else if(toFillUpgraderContainers.length || toFillUpgraderLinks.length || fillSpawn){
+    	                this.harvestStorage();
+    	            }
+    	            else {
+                        this.completeOrders();
+    	            }
+                }
             }
         }
         else {
             this.memory.getting = false;
-            if(this.memory.role == 'filler'){
+            if(this.memory.role == 'filler' || this.memory.role == 'labWorker'){
                 //Fill spawn containers
 	            if(this.fillContainer(toFillSpawnContainers) == ERR_NOT_FOUND){
 	                //Fill storage link if necessary. It will then link to upgrader link.
 	                let toFillStorageLinks = [];
 	                if(toFillUpgraderLinks.length){
-	                    toFillStorageLinks = util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].links,'storage').filter((link) => {return link.energy < Math.pow(1-LINK_LOSS_RATIO,2) * link.energyCapacity});
+	                    //toFillStorageLinks = util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].links,'storage').filter((link) => {return link.energy < Math.pow(1-LINK_LOSS_RATIO,2) * link.energyCapacity});
+	                    toFillStorageLinks = util.gatherObjectsInArray(this.room.links,'storage').filter((link) => link.energy < Math.pow(1-LINK_LOSS_RATIO,2) * link.energyCapacity);
 	                    //console.log('Storage links: ' + toFillStorageLinks);
 	                }
 	                if(this.transferResources(toFillStorageLinks,RESOURCE_ENERGY) == ERR_NOT_FOUND){
-	                    this.fillStorage();
+	                    if(fillSpawn){
+	                        this.fillSpawn();
+	                    }
+	                    else {
+	                        this.fillStorage();
+	                    }
 	                }
 	            }	                
             }
-            else if(this.memory.role == 'transporter'){
+            else if(this.memory.role == 'transporter' || this.memory.role == 'courier'){
                 //Fill storage link if necessary. It will then link to upgrader link.
                 let toFillStorageLinks = [];
                 if(toFillUpgraderLinks.length){
-                    toFillStorageLinks = util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].links,'storage').filter((link) => {return link.energy < Math.pow(1-LINK_LOSS_RATIO,2) * link.energyCapacity});
+                    //toFillStorageLinks = util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].links,'storage').filter((link) => {return link.energy < Math.pow(1-LINK_LOSS_RATIO,2) * link.energyCapacity});
+                    toFillStorageLinks = util.gatherObjectsInArray(this.room.links,'storage').filter((link) => link.energy < Math.pow(1-LINK_LOSS_RATIO,2) * link.energyCapacity);
                     //console.log('Storage links: ' + toFillStorageLinks);
                 }
                 if(this.transferResources(toFillStorageLinks,RESOURCE_ENERGY) == ERR_NOT_FOUND){
 	                //Fill upgrader containers
-	                let targetUpgraderContainer = findNotFilledContainerForCreep(this,util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].containers,'upgrader'),1,2);
+	                //let targetUpgraderContainer = findNotFilledContainerForCreep(this,util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].containers,'upgrader'),1,2);
+	                let targetUpgraderContainer = findNotFilledContainerForCreep(this,util.gatherObjectsInArray(this.room.containers,'upgrader'),1,2);
 	                //console.log(this.name + ' upgradercontainer ' + targetUpgraderContainer);
 	                if(targetUpgraderContainer != ERR_NOT_FOUND){
 	                    if(this.fillContainer(targetUpgraderContainer) != OK){
@@ -429,29 +634,36 @@ Creep.prototype.creepDedicatedTransporter = function(){
 	                }
 	                else {
 	                    //Fill towers
-	                    let towers = util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].structures,STRUCTURE_TOWER);
+	                    //let towers = util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].structures,STRUCTURE_TOWER);
+	                    let towers = util.gatherObjectsInArray(this.room.structures,STRUCTURE_TOWER);
 	                    let targetTower = findNotFilledContainerForCreep(this,towers,0,1);
+	                    //console.log(this.name + ' targetTower ' + targetTower);
 	                    if(targetTower != ERR_NOT_FOUND){
 	                        if(this.fillTower(targetTower) != OK){
 	                            this.memory.targetContainer = targetTower.id;
 	                        }
 	                    }
 	                    else {
-            	            let sourceContainers = util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].containers,'source');
-            	            let mineralContainers = util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].containers,'mineral');
+            	            //let sourceContainers = util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].containers,'source');
+            	            let sourceContainers = util.gatherObjectsInArray(this.room.containers,'source');
+            	            //let mineralContainers = util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].containers,'mineral');
+            	            let mineralContainers = util.gatherObjectsInArray(this.room.containers,'mineral');
             	            let storageLink = undefined;
             	            if(!toFillUpgraderLinks.length){
             	                //If no upgrader containers have to be filled, storage link can be emptied
-            	                storageLink = util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].links,'storage');
+            	                //storageLink = util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].links,'storage');
+            	                storageLink = util.gatherObjectsInArray(this.room.links,'storage');
             	            }
             	            else {storageLink = []}
             	            let containers = sourceContainers.concat(storageLink, mineralContainers);
+            	            //console.log(this.name + ' containers ' + containers);
             	            let target = findFilledContainerForCreep(this,containers,1,2);
+            	            //console.log('Target ' + target);
 	                        if(fillSpawn && target == ERR_NOT_FOUND){
 	                            this.fillSpawn();
 	                        }
-	                        else if(this.fillStorage() == ERR_NOT_FOUND){
-
+	                        else if(this.fillStorage() == ERR_NOT_FOUND && fillSpawn){
+                                this.fillSpawn();
 	                        }
 	                    }
 	                }
@@ -463,9 +675,13 @@ Creep.prototype.creepDedicatedTransporter = function(){
     function findFilledContainerForCreep(creep,containers,fillFraction,nLoops){
         return findContainerForCreep(creep,containers,fillFraction,nLoops,(cont) => {
             let content = undefined;
-            if(cont.structureType == STRUCTURE_CONTAINER || cont.structureType == STRUCTURE_STORAGE){
+            //console.log(creep.name + ' cont ' + cont);
+            if(cont.structureType == STRUCTURE_CONTAINER || cont.structureType == STRUCTURE_STORAGE || cont.structureType == STRUCTURE_TERMINAL){
                 content =  _.sum(cont.store);
             }
+            else if(cont.structureType == STRUCTURE_LAB){
+                content = cont.mineralAmount;
+            }            
             else {
                 content = cont.energy;
             }
@@ -477,8 +693,11 @@ Creep.prototype.creepDedicatedTransporter = function(){
     function findNotFilledContainerForCreep(creep,containers,emptyFraction,nLoops){
         return findContainerForCreep(creep,containers,emptyFraction,nLoops,(cont) => {
             let diff = 0;
-            if(cont.structureType == STRUCTURE_CONTAINER || cont.structureType == STRUCTURE_STORAGE){
+            if(cont.structureType == STRUCTURE_CONTAINER || cont.structureType == STRUCTURE_STORAGE || cont.structureType == STRUCTURE_TERMINAL){
                 diff = cont.storeCapacity - _.sum(cont.store);
+            }
+            else if(cont.structureType == STRUCTURE_LAB){
+                diff = cont.mineralCapacity - cont.mineralAmount;
             }
             else {
                 diff = cont.energyCapacity - cont.energy;
@@ -501,8 +720,9 @@ Creep.prototype.creepDedicatedTransporter = function(){
         //console.log(creep.name + ' targetedContainers ' + targetedContainers);
         for(let i=0; i<nLoops && !found; i++){
             //console.log(creep.name + ' filledContainers ' + filledContainers);
+            //console.log('B4 ' + creep.name + ' containers ' + containers + ' targetedContainers ' + targetedContainers + ' target ' + targetContainer);
 	        containers = containers.filter((cont) => {
-	            if(cont.structureType == STRUCTURE_CONTAINER || cont.structureType == STRUCTURE_STORAGE){
+	            if(cont.structureType == STRUCTURE_CONTAINER || cont.structureType == STRUCTURE_STORAGE  || cont.structureType == STRUCTURE_TERMINAL){
 	                return f(cont) >= (i+1) * fraction * creep.carryCapacity;
 	            }
 	            else if(cont.structureType == STRUCTURE_LINK){
@@ -562,7 +782,7 @@ Creep.prototype.creepExplorerTransporter = function(){
             else {
                 let targetContainer = Game.getObjectById(this.memory.targetContainer);
                 //console.log(this.name + ' ' + this.harvestContainer(targetContainer));
-                if(targetContainer && this.harvestContainer(targetContainer) != 1){
+                if(targetContainer && this.withdrawResource(targetContainer) != 1){
                     delete this.memory.targetContainer;
                 }
                 else if(!targetContainer){
@@ -571,19 +791,46 @@ Creep.prototype.creepExplorerTransporter = function(){
             }
             return;
         }
+        else if(this.memory.nextTargetContainer){
+            if(!Game.rooms[this.memory.targetRoom]){
+                this.moveToRoom(this.memory.targetRoom);
+            }
+            else {
+                let nextTargetContainer = Game.getObjectById(this.memory.nextTargetContainer);
+                if(nextTargetContainer){
+                    if(_.sum(nextTargetContainer.store) >= this.carryCapacity - _.sum(this.carry)){
+                        this.memory.targetContainer = nextTargetContainer.id;
+                        delete this.memory.nextTargetContainer;
+                    }
+                    else if(this.moveTo([nextTargetContainer],1) == ERR_NOT_FOUND){
+                        delete this.memory.nextTargetContainer;
+                    }
+                }
+                else if(!nextTargetContainer){
+                    delete this.memory.nextTargetContainer;
+                }
+            }
+            return;
+        }
     }
     
     if(this.memory.collecting){
-        let droppedResources = util.gatherObjectsInArrayFromIds(roomObjects[this.room.name],'dropped').filter((rs) => {
-            let resourceHarvestPower = HARVEST_POWER;
-            if(rs.resourceType != RESOURCE_ENERGY){
-                resourceHarvestPower = HARVEST_MINERAL_POWER;
+        let droppedResources = [];
+        for(let i=0; i<this.targetRooms.length; i++){
+            if(Game.rooms[this.targetRooms[i]] != undefined){
+                let droppedInRoom = util.gatherObjectsInArrayFromIds(roomObjects[this.targetRooms[i]],'dropped').filter((rs) => {
+                    let resourceHarvestPower = HARVEST_POWER;
+                    if(rs.resourceType != RESOURCE_ENERGY){
+                        resourceHarvestPower = HARVEST_MINERAL_POWER;
+                    }
+                    return rs.amount > Math.max(5,this.body.filter((bP) => {return bP.type == WORK}).length) * resourceHarvestPower * Math.ceil(Math.sqrt(Math.pow(this.pos.x-rs.pos.x,2) + Math.pow(this.pos.y-rs.pos.y,2)));
+                });
+                droppedResources = droppedResources.concat(droppedInRoom);
             }
-            return rs.amount > Math.max(5,this.body.filter((bP) => {return bP.type == WORK}).length) * resourceHarvestPower * Math.ceil(Math.sqrt(Math.pow(this.pos.x-rs.pos.x,2) + Math.pow(this.pos.y-rs.pos.y,2)));
-        });
+        }
         let notTargetedResources = undefined;
         if(droppedResources.length) {
-            let targetedDroppedResources = util.targetObjectsOfCreeps('getDropped',this.room);
+            let targetedDroppedResources = util.targetObjectsOfCreeps('getDropped');
             notTargetedResources = util.findArrayOfDifferentElements(droppedResources,targetedDroppedResources);
         }
         else {
@@ -594,25 +841,21 @@ Creep.prototype.creepExplorerTransporter = function(){
         let darkRooms = [];
         for(let i=0; i<this.targetRooms.length; i++){
             if(Game.rooms[this.targetRooms[i]] != undefined){
-                let filledContainers = util.gatherObjectsInArrayFromIds(roomObjects[this.targetRooms[i]].containers,'source').filter((cont) => {return _.sum(cont.store) >= this.carryCapacity - _.sum(this.carry)});
+                let filledContainers = util.gatherObjectsInArrayFromIds(roomObjects[this.targetRooms[i]].containers,'source','mineral').filter((cont) => {return _.sum(cont.store) >= this.carryCapacity - _.sum(this.carry)});
                 filledSourceContainers = filledSourceContainers.concat(filledContainers);
             }
             else {
                 darkRooms.push(this.targetRooms[i]);
             }
         }
-        let targetedContainers = util.targetObjectsOfCreeps('targetContainer');
-        //console.log(this.name + ' filled ' + filledSourceContainers +' targeted '+ targetedContainers);
+        //let targetedContainers = util.targetObjectsOfCreeps('targetContainer');
+        let targetedContainers = util.targetObjectsOfCreeps('targetContainer').concat(util.targetObjectsOfCreeps('nextTargetContainer'));
         let notTargetedContainers = util.findArrayOfDifferentElements(filledSourceContainers,targetedContainers);
         filledSourceContainers = filledSourceContainers.filter((cont) => {return _.sum(cont.store) >= 2*this.carryCapacity - _.sum(this.carry)});
         let dubbleTargetedContainers = util.findDubbles(targetedContainers);
-        //console.log(this.name + 'dubble filled ' + filledSourceContainers + ' dubble targeted ' + dubbleTargetedContainers);
         notTargetedContainers = notTargetedContainers.concat(util.findArrayOfDifferentElements(filledSourceContainers,dubbleTargetedContainers));
-        //console.log(this.name + ' not targeted ' + notTargetedContainers);
-        //console.log(this.name + ' targets to pick from ' + notTargetedResources.concat(notTargetedContainers));
         let target = this.pos.closestByRange(notTargetedResources.concat(notTargetedContainers));
-        //console.log(this.name + ' target ' + target);
-        
+
         if(target){
             this.memory.getting = true;
             this.memory.targetRoom = target.pos.roomName;
@@ -628,17 +871,41 @@ Creep.prototype.creepExplorerTransporter = function(){
             return;
         }
         else if(this.targetRooms.length){
-            this.moveToRoom(this.targetRooms[0]);
-            return;
+            let allSourceContainers = [];
+            for(let i=0; i<this.targetRooms.length; i++){
+                if(Game.rooms[this.targetRooms[i]] != undefined){
+                    allSourceContainers = allSourceContainers.concat(util.getArrayObjectsById(roomObjects[this.targetRooms[i]].containers.source));
+                }
+            }
+            notTargetedContainers = util.findArrayOfDifferentElements(allSourceContainers,targetedContainers);
+            target = util.findExtremum(notTargetedContainers,(c1,c2) => _.sum(c1.store) > _.sum(c2.store));
+            //console.log(this.name + ' in room ' + this.room.name + ' moving to next container ' + target + ' not targeted ' + notTargetedContainers +  ' targeted ' + targetedContainers);
+            if(target){
+                this.memory.getting = true;
+                this.memory.targetRoom = target.pos.roomName;
+                this.memory.nextTargetContainer = target.id;
+            }
+            else {
+                //console.log(this.name + ' in room ' + this.room.name + ' has no next target container');
+                this.moveToRoom(this.targetRooms[0]);
+                return;                
+            }
         }
     }
     else {
         this.memory.getting = false;
         //console.log(this.name);
+        if(_.sum(this.carry) > this.carry.energy){
+            //Carrying mineral -> put in storage
+            let storageContainer = Game.rooms[this.memory.origin].storage;
+            if(this.transferResources(storageContainer) != ERR_NOT_FOUND){
+                return;
+            }
+        }
         let avContainers = util.gatherObjectsInArrayFromIds(roomObjects[this.memory.origin].containers,'source','spawn','storage').filter((cont) => {return _.sum(cont.store) < cont.storeCapacity});
         let avUpgraderContainers = util.gatherObjectsInArrayFromIds(roomObjects[this.memory.origin].containers,'upgrader').filter((cont) => {return cont.storeCapacity - _.sum(cont.store) >= this.carry.energy})
         let avLinks = util.gatherObjectsInArrayFromIds(roomObjects[this.memory.origin].links,'source','spawn').filter((link) => {return link.energy < link.energyCapacity});;
-        let targets = avContainers.concat(avLinks,avUpgraderContainers);
+        let targets = avLinks.concat(avUpgraderContainers,avContainers);
         if(this.transferResources(targets) == ERR_NOT_FOUND){
             this.say('Store full');
         }
@@ -698,7 +965,7 @@ Creep.prototype.creepBuild = function(){
     
     if(this.carry.energy == 0){
         let rtn = this.collectDroppedResource(RESOURCE_ENERGY);
-        //console.log(this.name + ' rtn ' + rtn + ' room ' + this.room.name + ' origin ' + orRoom);
+        //if(this.name == 'Scarlett'){console.log(this.name + ' rtn ' + rtn + ' room ' + this.room.name + ' origin ' + this.memory.origin)}
         if(rtn == ERR_NOT_FOUND){
             let targetContainers = util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].containers,'source','storage').filter((cont) => {return cont.store.energy > 0});
             let targetLinks = util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].links,'source').filter((link) => {return link.energy > 0});
@@ -740,7 +1007,7 @@ Creep.prototype.creepBuild = function(){
                     }
                     else if(this.room.name != this.memory.origin){
                         this.moveToRoom(this.memory.origin);
-                    }                    
+                    }
                 }
             }
         }
@@ -750,12 +1017,14 @@ Creep.prototype.creepBuild = function(){
 Creep.prototype.creepRepair = function(){
     
     let dmgStructures = [];
+    let criticalRepairs = [];
     let darkRooms = [];
     for(let i=0; i<this.targetRooms.length; i++){
-        if(!(Game.rooms[this.targetRooms[i]] == undefined)){
+        if(Game.rooms[this.targetRooms[i]] != undefined){
             let room = Game.rooms[this.targetRooms[i]];
             let dmgStructRoom = util.getArrayObjectsById(room.memory.dmgStructures);
             dmgStructures = dmgStructures.concat(dmgStructRoom);
+            criticalRepairs = criticalRepairs.concat(util.getArrayObjectsById(room.memory.criticalRepairs));
         }
         else {
             darkRooms.push(this.targetRooms[i]);
@@ -767,7 +1036,9 @@ Creep.prototype.creepRepair = function(){
     }
 
     if(this.carry.energy == 0){
+        //if(this.name == 'Scarlett'){console.log(this.name)}
         let rtn = this.collectDroppedResource(RESOURCE_ENERGY);
+        //if(this.name == 'Scarlett'){console.log(this.name + ' getDropped ' + rtn)}
         if(rtn == ERR_NOT_FOUND){
             let targetContainers = util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].containers,'source','storage').filter((cont) => {return cont.store.energy > 0});
             let targetLinks = util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].links,'source').filter((link) => {return link.energy > 0});
@@ -782,10 +1053,12 @@ Creep.prototype.creepRepair = function(){
             //console.log(this.name,'going to dark room');
             this.moveToRoom(darkRooms[0]);
             return;
-        }          
-        if(this.repairStructure(1,dmgStructures) == ERR_NOT_FOUND){
-            //console.log(this.name,'doing build');
-            this.creepBuild();
+        }
+        if(this.repairStructure(1,criticalRepairs) == ERR_NOT_FOUND){
+            if(this.repairStructure(1,dmgStructures) == ERR_NOT_FOUND){
+                //console.log(this.name,'doing build');
+                this.creepBuild();
+            }            
         }
     }
 };
@@ -809,14 +1082,23 @@ Creep.prototype.creepUpgrader = function(){
         for(let i=0; i<this.targetRooms.length && !found; i++){
             if(Game.rooms[this.targetRooms[i]] != undefined){
                 let room = Game.rooms[this.targetRooms[i]];
-                if(room.controller.owner && room.controller.owner.username == 'Vervust'){
+                if(room.controller && room.controller.owner && room.controller.owner.username == 'Vervust'){
                     this.memory.controllerRoom = room.name;
                     found = true;
                 }
             }
         }
         if(!found){
-            console.log(this.role + ' ' + this.name + ' has no room to upgrade controller');
+            if(this.memory.origin == this.targetRooms[0]){
+                console.log(this.role + ' ' + this.name + ' has no room to upgrade controller');
+                return;
+            }
+            else {
+                this.targetRooms = [this.memory.origin];
+                this.creepUpgrader();
+                return;
+            }
+            
         }
     }
     
@@ -849,7 +1131,7 @@ Creep.prototype.creepReserver = function(){
     var controller = [];
     if(controllerId){
         //Get from memory
-        if(!(Game.rooms[controllerRoom] == undefined)){
+        if(Game.rooms[controllerRoom] != undefined){
             controller.push(Game.getObjectById(controllerId));
         }
         else {
@@ -862,8 +1144,8 @@ Creep.prototype.creepReserver = function(){
         let allControllers = [];
         let darkRooms = [];
         for(let i=0; i<this.targetRooms.length; i++){
-            if(!(Game.rooms[this.targetRooms[i]] == undefined)){
-                if(Game.rooms[this.targetRooms[i]].controller.owner == undefined){
+            if(Game.rooms[this.targetRooms[i]] != undefined){
+                if(Game.rooms[this.targetRooms[i]].controller && Game.rooms[this.targetRooms[i]].controller.owner == undefined){
                     allControllers.push(Game.rooms[this.targetRooms[i]].controller);
                 }
             }
@@ -1038,7 +1320,7 @@ Creep.prototype.creepExplorerMelee = function(){
             let roomMemory = Memory.rooms[this.targetRooms[i]];
             if(roomMemory && roomMemory.defense.underAttack){
                 attackedRoom = this.targetRooms[i];
-                let nEnemies = roomMemory.defense.hostiles.number;
+                let nEnemies = roomMemory.defense.nHostiles;
                 let roomMeleeCreeps = _.filter(Game.creeps,(cr) => {return cr.role == 'melee' && cr.targetRoom == this.targetRooms[i]}).length;
                 if(nEnemies > roomMeleeCreeps){
                     this.memory.targetRoom = this.targetRooms[i];
@@ -1076,14 +1358,14 @@ Creep.prototype.creepExplorerMelee = function(){
 
 Creep.prototype.creepCombat = function(){
     
-    let attackedRoom = this.memory.targetRoom;
+    let attackedRoom = this.memory.defendRoom;
     if(attackedRoom){
         //console.log(this.name + ' in room');
         if(!Memory.rooms[attackedRoom].defense.underAttack){
             if(this.healOther() == ERR_NOT_FOUND){
                 console.log(this.memory.role + ' creep ' + this.name + ' its room ' + attackedRoom + ' is no longer under attack. Moving to different room.');
                 this.stationaryCombat();
-                delete this.memory.targetRoom;
+                delete this.memory.defendRoom;
             }
             return;                 
         }
@@ -1096,16 +1378,20 @@ Creep.prototype.creepCombat = function(){
     }
     else {
         let found = false;
+        let darkRooms = [];
         for(let i=0; i<this.targetRooms.length && !found; i++){
             let roomMemory = Memory.rooms[this.targetRooms[i]];
             if(roomMemory && roomMemory.defense.underAttack){
                 attackedRoom = this.targetRooms[i];
-                let nEnemies = roomMemory.defense.hostiles.number;
-                let roomCombatCreeps = _.filter(Game.creeps,(cr) => {return (cr.role == 'melee' || cr.role == 'ranged') && cr.targetRoom == this.targetRooms[i]}).length;
-                if(nEnemies > roomCombatCreeps/2){
+                let nEnemies = roomMemory.defense.nHostiles;
+                let roomCombatCreeps = util.targetRoomsOfCreeps('defendRoom');
+                if(nEnemies > roomCombatCreeps){
                     this.memory.targetRoom = this.targetRooms[i];
                     found = true;
                 }
+            }
+            else if(!Game.rooms[this.targetRooms[i]]){
+                darkRooms.push(this.targetRooms[i]);
             }
         }
         if(!found){
@@ -1113,9 +1399,16 @@ Creep.prototype.creepCombat = function(){
                 this.memory.targetRoom = attackedRoom;
                 console.log(this.memory.role + ' creep ' + this.name + ' moving to ' + attackedRoom);
             }
+            else if(darkRooms.length){
+                console.log(this.name + ' going to dark rooms (combat) ' + darkRooms[0]);
+                this.moveToRoom(darkRooms[0]);
+                this.stationaryCombat();
+                return;
+            }
             else {
                 //console.log(this.memory.role + ' creep ' + this.name + ' has no room to go to');
                 if(this.healOther() == ERR_NOT_FOUND){
+                    //If creep is in rampart: move out of it to let workers pass
                     if(this.targetRooms.length){this.moveToRoom(this.targetRooms[0])};
                     this.stationaryCombat();
                 }
@@ -1124,21 +1417,135 @@ Creep.prototype.creepCombat = function(){
         }
     }
     
+    if(this.room.name != attackedRoom){
+        //Go to attacked room, use specified path if present (path is an array of roomNames)
+        if(presetPath && presetPath[this.memory.type] && presetPath[this.memory.type][this.memory.origin]){
+            //Walk via preset path
+            let index = presetPath[this.memory.type][this.memory.origin].indexOf(this.room.name);
+            if(index == -1){
+                //Find closest room in array
+                console.log(this.name + ' diverged form path');
+                this.moveToRoom(util.findClosestRoomByRange(this.room.name,presetPath[this.memory.type][this.memory.origin]));
+                this.stationaryCombat();
+                return;
+            }
+            else {
+                //continue to next room
+                console.log(this.name + ' going to next room in preset ' + presetPath[this.memory.type][this.memory.origin][index+1]);
+                this.moveToRoom(presetPath[this.memory.type][this.memory.origin][index+1]);
+                this.stationaryCombat();
+                return;
+            }
+            
+        }
+    }
+    
     let room = Game.rooms[attackedRoom];
     //console.log('Room ' + room);
     if(!room){
-        //console.log(this.name + ' Going to attacked room');
-        this.moveToRoom(attackedRoom);
-        this.stationaryCombat();
+        if(attackedRoom){
+            //console.log(this.name + ' Going to attacked room');
+            this.moveToRoom(attackedRoom);
+            this.stationaryCombat();            
+        }
         return;
     }
     
-    let hostiles = room.find(FIND_HOSTILE_CREEPS);
-    //console.log(JSON.stringify(hostiles));
-    let healers = hostiles.filter((hostile) => {return hostile.body.filter((bodyPart) => {return bodyPart.type == HEAL}).length});
-    if(this.combat(healers) == ERR_NOT_FOUND){
-        if(this.combat(hostiles) == ERR_NOT_FOUND){
-            this.say('All Clear');
+    if(room.controller && room.controller.owner && room.controller.owner.username == 'Vervust'){
+        //Main room is under attack
+        if(!this.room.memory.defense.breached){
+            //console.log(this.name + ' not breached');
+            let rampart = [];
+            if(this.memory.rampart){
+                let creepRampart = Game.getObjectById(this.memory.rampart);
+                if(creepRampart){
+                    rampart.push(creepRampart)
+                    
+                }
+                else {
+                    delete creep.memory.rampart;
+                    this.stationaryCombat();
+                    return;
+                }                
+            }
+            else {
+                let ramparts = roomObjects[room.name].ramparts;
+                //console.log('Roomobj ' + JSON.stringify(roomObjects[room.name].ramparts));
+                let targetRamparts = undefined;
+                if(this.getActiveBodyparts(ATTACK)){
+                    targetRamparts = util.gatherObjectsInArrayFromIds(ramparts,'melee');
+                }
+                else if(this.getActiveBodyparts(RANGED_ATTACK)){
+                    targetRamparts = util.gatherObjectsInArrayFromIds(ramparts,'ranged');
+                }
+                else {
+                    targetRamparts = [];
+                }
+                let occupiedRamparts = util.targetObjectsOfCreeps('rampart',room);
+                let target = util.findDifferentElement(targetRamparts, occupiedRamparts);
+                //console.log(this.name + ' targets ' + targetRamparts + ' occupied ' + occupiedRamparts);
+                if(target != ERR_NOT_FOUND){
+                    rampart.push(target);
+                    this.memory.rampart = target.id;
+                }
+                else if(targetRamparts.length){
+                    //straight up attack
+                    //TODO: Make them attack in pacs
+                    let healers = util.gatherObjectsInArrayFromIds(roomObjects[room.name].hostiles,'heal','meleeHeal','rangedHeal','hybrid');
+                    if(this.combat(healers) == ERR_NOT_FOUND){
+                        let otherHostiles = util.gatherObjectsInArrayFromIds(roomObjects[room.name].hostiles,'melee','ranged','meleeRanged','hybrid','claim');
+                        this.combat(otherHostiles);
+                    }                      
+                }
+                else {
+                    //Walls are not under attack, wait inside walls
+                    //TODO: still attack if opponents don't pose a treath (e.g) only dismantler and healer
+                }
+            }
+            
+            if(roomObjects[room.name].hostiles[ATTACK] == 0 && roomObjects[room.name].hostiles[RANGED_ATTACK] == 0){
+                //Hostiles can't do damage -> go out and attack them
+                let healers = util.gatherObjectsInArrayFromIds(roomObjects[room.name].hostiles,'heal','meleeHeal','rangedHeal','hybrid');
+                if(this.combat(healers) == ERR_NOT_FOUND){
+                    let otherHostiles = util.gatherObjectsInArrayFromIds(roomObjects[room.name].hostiles,'melee','ranged','meleeRanged','hybrid','claim');
+                    this.combat(otherHostiles);
+                }                  
+            }
+            else if(this.occupyRampart(rampart) == OK){
+                this.stationaryCombat();
+                let healers = util.gatherObjectsInArrayFromIds(roomObjects[room.name].hostiles,'heal','meleeHeal','rangedHeal','hybrid');
+                if(this.stationaryCombat(healers) == ERR_NOT_FOUND){
+                    let otherHostiles = util.gatherObjectsInArrayFromIds(roomObjects[room.name].hostiles,'melee','ranged','meleeRanged','hybrid','claim');
+                    if(this.stationaryCombat(otherHostiles) == ERR_NOT_FOUND){
+                        //No hostiles in range of ramparts
+                        delete this.memory.rampart;
+                        //Move inside walls to prevent creep from going to other rampart via outside of walls
+                        this.moveTo([this.room.storage],5);
+                    }
+                }
+            }
+            else {
+                this.stationaryCombat();
+            }
+        }
+        else {
+            //Defenses breached. Attack from ramparts no longer makes sense
+            let healers = util.gatherObjectsInArrayFromIds(roomObjects[room.name].hostiles,'heal','meleeHeal','rangedHeal','hybrid');
+            if(this.combat(healers) == ERR_NOT_FOUND){
+                let otherHostiles = util.gatherObjectsInArrayFromIds(roomObjects[room.name].hostiles,'melee','ranged','meleeRanged','hybrid','claim');
+                if(this.combat(otherHostiles) == ERR_NOT_FOUND){
+                    let nonLethalHostiles = util.gatherObjectsInArrayFromIds(roomObjects[room.name].hostiles,'other');
+                    this.combat(nonLethalHostiles);
+                }
+            }            
+        }
+    }
+    else {
+        //Remote room is under attack
+        let healers = util.gatherObjectsInArrayFromIds(roomObjects[room.name].hostiles,'heal','meleeHeal','rangedHeal','hybrid');
+        if(this.combat(healers) == ERR_NOT_FOUND){
+            let otherHostiles = util.gatherObjectsInArrayFromIds(roomObjects[room.name].hostiles,'melee','ranged','meleeRanged','hybrid','claim');
+            this.combat(otherHostiles);
         }
     }
 };
@@ -1235,4 +1642,107 @@ Creep.prototype.creepPatroll = function(){
         this.moveToRoom(patrollRoom);
         this.stationaryCombat();
     }
+};
+
+Creep.prototype.creepDrainer = function(){
+    
+    if(!this.memory.attackRoom){
+        let attackedRooms = util.targetRoomsOfCreeps('attackRoom');
+        let found = false;
+        while(!found){
+            let notTargetedRooms = util.findArrayOfDifferentStrings(this.targetRooms,attackedRooms);
+            if(notTargetedRooms.length){
+                this.memory.attackRoom = notTargetedRooms[0];
+                found = true;
+            }
+            else {
+                attackedRooms = util.findDubbleStrings(attackedRooms);
+            }
+        }
+    }
+    
+    if(this.memory.attackRoom){
+        //Creep will move to room and sit on border to drain towers
+        this.moveToRoom(this.memory.attackRoom);
+    }
+    this.stationaryCombat();
+};
+
+Creep.prototype.creepStartUpBuilder = function(){
+    if(!this.memory.starterRoom){
+        let targetedRooms = util.targetRoomsOfCreeps('starterRoom');
+        let targetRoom = undefined;
+        let found = false;
+        while(!found){
+            targetRoom = util.findArrayOfDifferentStrings(this.targetRooms,targetedRooms);
+            if(targetRoom.length){
+                found = true;
+                this.memory.starterRoom = targetRoom[0];
+            }
+            else {
+                targetedRooms = util.findDubbleStrings(targetedRooms);
+            }
+        }
+    }
+    
+    let room = Game.rooms[this.memory.starterRoom];
+    if(!room && this.memory.starterRoom){
+        this.moveToRoom(this.memory.starterRoom);
+        return;
+    }
+    
+    if(this.memory.harvesting && _.sum(this.carry) == this.carryCapacity){
+        this.memory.harvesting = false;
+    }
+    if(!this.memory.harvesting && _.sum(this.carry) == 0){
+        this.memory.harvesting = true;
+    }
+    if(this.memory.harvesting && this.memory.source){
+        let source = Game.getObjectById(this.memory.source);
+        if(source && source.energy == 0){
+            this.memory.harvesting = false;
+        }
+    }
+    
+    if(remoteRooms && remoteRooms['explorer'] && remoteRooms['explorer'][this.memory.starterRoom]){
+        this.targetRooms = this.targetRooms.concat(remoteRooms['explorer'][this.memory.starterRoom]);
+    }
+    
+    if(this.memory.harvesting){
+        this.creepHarvest();
+    }
+    else if(Game.rooms[this.memory.starterRoom].controller.ticksToDowngrade < 5000){
+        //Don't let controller downgrade
+        this.creepUpgrader();
+    }
+    else if(this.fillTower() == ERR_NOT_FOUND){
+        let dmgStructures = [];
+        let criticalRepairs = [];
+        for(let i=0; i<this.targetRooms.length; i++){
+            if(Game.rooms[this.targetRooms[i]] != undefined){
+                let room = Game.rooms[this.targetRooms[i]];
+                let dmgStructRoom = util.getArrayObjectsById(room.memory.dmgStructures);
+                dmgStructures = dmgStructures.concat(dmgStructRoom);
+                criticalRepairs = criticalRepairs.concat(util.getArrayObjectsById(room.memory.criticalRepairs));
+            }
+        }
+        if(this.repairStructure(1,criticalRepairs) == ERR_NOT_FOUND){
+            if(this.repairStructure(1,dmgStructures) == ERR_NOT_FOUND){
+                let explorerSites = [];
+                for(let site in Game.constructionSites){
+                    let roomName = Game.constructionSites[site].pos.roomName;
+                    for(let i=0; i<this.targetRooms.length; i++){
+                        if(this.targetRooms[i] == roomName){
+                            explorerSites.push(Game.constructionSites[site]);
+                            break;
+                        }
+                    }
+                }
+                if(this.buildStructure(explorerSites) == ERR_NOT_FOUND){
+                    this.creepUpgrader();
+                }
+            }             
+        }
+    }
+    
 };

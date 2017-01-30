@@ -73,6 +73,9 @@ Creep.prototype.withdrawResource = function(targets,resourceType,amount){
             if(targ.structureType == STRUCTURE_SPAWN || targ.structureType == STRUCTURE_EXTENSION || targ.structureType == STRUCTURE_LINK){
                 resourceType = RESOURCE_ENERGY;
             }
+            else if(targ.structureType == STRUCTURE_LAB){
+                resourceType = targ.mineralType;
+            }
             else {
                 for(let resource in targ.store){
                     if(targ.store[resource]){
@@ -88,9 +91,13 @@ Creep.prototype.withdrawResource = function(targets,resourceType,amount){
         if(targ.structureType == STRUCTURE_CONTAINER || targ.structureType == STRUCTURE_STORAGE){
             amount = Math.min(amount,targ.store[resourceType]);
         }
+        else if(targ.structureType == STRUCTURE_LAB){
+            amount = Math.min(amount,targ.mineralAmount);
+        }
         else {
             amount = Math.min(amount,targ[resourceType]);
         }
+        //if(this.memory.role == 'filler') {console.log('Target ' + targ + ' resourceType ' + resourceType +' amount ' + amount)}
         return this.withdraw(targ,resourceType,amount);
     }
     if(targ < 0){
@@ -132,6 +139,7 @@ Creep.prototype.collectDroppedResource = function(resourceType, resource){
             res = this.pos.closestByRange(notTargetedResources);
             if(res){
                 this.memory.getDropped = res.id;
+                res = [res];
             } 
             else {
                 return ERR_NOT_FOUND;
@@ -147,12 +155,15 @@ Creep.prototype.collectDroppedResource = function(resourceType, resource){
     if(!res.length){
         return ERR_NOT_FOUND;
     }
-    //console.log(this.creep.name + ' getting dropped resource ' + res);
+    //if(this.name == 'Scarlett'){console.log(this.name + ' getting dropped resource ' + res)}
     
     res = this.moveTo(res,1);
     if(res != OK && res != ERR_NOT_FOUND){
         delete this.memory.getDropped;
         return this.pickup(res);
+    }
+    else if(res == ERR_NOT_FOUND){
+        delete this.memory.getDropped;
     }
     if(res < 0){
         return res;
@@ -246,6 +257,10 @@ Creep.prototype.completeOrders = function(){
             }
             else if(amount > 0){
                 let storeResource = util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].containers,'source','mineral','storage').filter((cont) => {return cont.store[resource] > 0});
+                //let target = this.pos.closestByRange(storeResource);
+                if(!storeResource.length){
+                    continue;
+                }
                 let withdrawAmount = Math.min(this.carryCapacity,amount);
                 let rtn = this.withdrawResource(storeResource,resource,withdrawAmount);
                 //console.log('Amount ' + withdrawAmount + ' targets ' + storeResource + ' rtn ' + rtn);
@@ -263,10 +278,15 @@ Creep.prototype.completeOrders = function(){
             else {
                 amount = Math.abs(amount);
                 let terminal = [this.room.terminal].filter((term) => {return term.store[resource] > 0});
-                let withdrawAmount = Math.min(this.carryCapacity,amount);
+                if(!terminal.length){
+                    //console.log(this.name + ' not enough in storage');
+                    continue;
+                }
+                //let target = this.pos.closestByRange(terminal);
+                let withdrawAmount = Math.min(this.carryCapacity,amount,terminal[0].store[resource]);
                 let rtn = this.withdrawResource(terminal,resource,withdrawAmount);
                 if(rtn == OK){
-                    //console.log(creep.name + ' type ' + resource + ' amount ' + amount + ' withdrawn ' + withdrawAmount);
+                    //console.log(this.name + ' type ' + resource + ' amount ' + amount + ' withdrawn ' + withdrawAmount);
                     this.room.memory.orders[resource] += withdrawAmount;
                     return;
                 }
@@ -274,6 +294,121 @@ Creep.prototype.completeOrders = function(){
                     return;
                 }
             }
+        }
+    }
+    return ERR_NOT_FOUND;
+};
+
+Creep.prototype.supplyLabs = function(){
+    if(!this.room.memory.boosts || !roomObjects[this.room.name].labs){
+        return ERR_NOT_FOUND;
+    }
+    let sourceLabs = util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].labs,'source');
+    let targetLabs = util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].labs,'target');
+    if(sourceLabs.length != 2 || targetLabs.length < 1){
+        //Not the right amount of labs to perform reaction
+        return ERR_NOT_FOUND;
+    }
+    
+    if(this.room.memory.boosts.length == 0){
+        //Empty labs
+        for(let i=0; i<sourceLabs.length; i++){
+            if(sourceLabs[i].mineralAmount > 0){
+                this.memory.getting = true;
+                this.memory.targetContainer = sourceLabs[i].id;
+                return;
+            }
+        }
+        for(let i=0; i<targetLabs.length; i++){
+            if(targetLabs[i].mineralAmount > 0){
+                this.memory.getting = true;
+                this.memory.targetContainer = targetLabs[i].id;
+                return;
+            }
+        }
+        return ERR_NOT_FOUND;
+    }
+    //console.log(this.name + ' enough labs');
+    
+    let reagents = [];
+    if(this.room.memory.boosts[0].reagents){
+        for(let i=0; i<this.room.memory.boosts[0].reagents.length; i++){
+            reagents.push(this.room.memory.boosts[0].reagents[i]);
+        }
+    }
+    else {
+        for(let reagent in this.room.memory.boosts[0].supply){reagents.push(reagent)}
+    }
+    let emptyLabs = [];
+    let labsWithReagent = {};
+    let reagentsInLabs = [];
+    let targeted = util.targetObjectsOfCreeps('targetContainer',this.room);
+    sourceLabs = util.findArrayOfDifferentElements(sourceLabs,targeted);
+    
+    //console.log('Source labs ' + sourceLabs + ' targeted ' + targeted);
+    
+    //Look for source labs with wrong resource
+    for(let i=0; i<sourceLabs.length; i++){
+        let found = false; //Found lab which can contain or allready contains minerals needed for reaction
+        for(let j=0; j<reagents.length && !found; j++){
+            if(reagents[j] == sourceLabs[i].mineralType){
+                labsWithReagent[reagents[j]] = sourceLabs[i];
+                reagentsInLabs.push(reagents.splice(j,1));
+                j--;
+                found = true;
+            }
+            else if(!sourceLabs[i].mineralType){
+                emptyLabs.push(sourceLabs[i]);
+                found = true;
+            }
+        }
+        if(!found){
+            //This lab contains wrong resource -> empty it
+            //console.log(this.name + ' emptying source lab ' + sourceLabs[i]);
+            this.memory.targetContainer = sourceLabs[i].id;
+            this.memory.getting = true;
+            return;
+        }
+    }
+    reagents = reagents.concat(reagentsInLabs);
+    
+    //console.log('Reagents ' + reagents + ' Labs with reagents ' + JSON.stringify(labsWithReagent) + ' empty ' + emptyLabs);
+    
+    //Look for source labs that have to be filled
+    for(let i=0; i<reagents.length; i++){
+        let targetLab = undefined
+        if(labsWithReagent[reagents[i]] && labsWithReagent[reagents[i]].mineralCapacity - labsWithReagent[reagents[i]].mineralAmount >= this.carryCapacity){
+            targetLab = labsWithReagent[reagents[i]];
+        }
+        else if(!labsWithReagent[reagents[i]] && emptyLabs.length){
+            targetLab = emptyLabs.shift();
+        }
+        if(targetLab){
+            //console.log(this.name + ' filling lab ' + targetLab + ' with ' + reagents[i]);
+            let storeResource = util.gatherObjectsInArrayFromIds(roomObjects[this.room.name].containers,'source','mineral','storage').filter((cont) => {return cont.store[reagents[i]] > 0});
+            let target = this.pos.closestByRange(storeResource);
+            if(target){ //
+                let withdrawAmount = Math.min(this.carryCapacity,target.store[reagents[i]]);
+                if(this.withdrawResource([target],reagents[i].toString(),withdrawAmount) == OK){
+                    this.memory.getting = false;
+                    this.memory.targetContainer = targetLab.id;
+                }
+            }
+            else {
+                continue;
+            }
+            return;
+        }
+    }
+    
+    //Look for target labs that contain wrong type of boosts and have to be emptied
+    targetLabs = util.findArrayOfDifferentElements(targetLabs,targeted);
+    for(let i=0; i<targetLabs.length; i++){
+        if(targetLabs[i].mineralType && targetLabs[i].mineralType != this.room.memory.boosts[0].type){
+            //console.log(this.name + ' emptying target lab ' + targetLabs[i]);
+            this.memory.getting = true;
+            this.memory.targetContainer = targetLabs[i].id;
+            return;
         }
     }
     return ERR_NOT_FOUND;
@@ -408,7 +543,7 @@ Creep.prototype.rangeAttack = function(hostiles){
 };
 
 Creep.prototype.combat = function(hostiles){
-
+    //console.log(this.name + ' combat');
     if(hostiles == undefined){
         hostiles = this.room.find(FIND_HOSTILE_CREEPS);
     }
@@ -420,7 +555,7 @@ Creep.prototype.combat = function(hostiles){
     //console.log('Hostiles ' + hostiles.length + ' ' + JSON.stringify(hostiles));
     if(!hostiles.length){
         if(bodyCount[HEAL] && this.hits<this.hitsMax){
-            //console.log(this.creep.name + ' heal');
+            //console.log(this.name + ' heal');
             this.heal(this);
         }        
         return ERR_NOT_FOUND;
@@ -445,20 +580,28 @@ Creep.prototype.combat = function(hostiles){
     if(bodyCount[ATTACK]){
         hostile = this.moveTo(hostiles,1);
         if(hostile != OK && hostile != ERR_NOT_FOUND){
-            //console.log(this.creep.name + ' attack');
-            this.attack(hostile);
+            //console.log(this.name + ' attack');
+            //this.attack(hostile);
+            //moveToAttack
+            if(this.move(this.pos.getDirectionTo(hostile)) == OK){
+                //console.log(this.name + ' heal after move attack');
+                this.heal(this);
+            }
+            else {
+                this.attack(hostile);
+            }
             rtn = OK;
         }
         else {
             rtn = Math.max(rtn,hostile);
             if(bodyCount[HEAL] && this.hits<this.hitsMax){
-                //console.log(this.creep.name + ' heal');
+                //console.log(this.name + ' heal');
                 this.heal(this);
             }
         }        
     }
     else if(bodyCount[HEAL] && this.hits<this.hitsMax){
-        //console.log(this.creep.name + ' heal');
+        //console.log(this.name + ' heal');
         this.heal(this);
     }
     
@@ -471,9 +614,13 @@ Creep.prototype.combat = function(hostiles){
 };
 
 Creep.prototype.stationaryCombat = function(hostiles){
-    //console.log('Stationary');
+    
+    if(this.getActiveBodyparts(ATTACK) == 0 && this.getActiveBodyparts(RANGED_ATTACK) == 0 && this.getActiveBodyparts(HEAL) == 0) {return}
+    //console.log(this.name + ' stationary');
     if(hostiles == undefined){
+        //console.log(this.name + ' search');
         hostiles = this.room.find(FIND_HOSTILE_CREEPS);
+        //console.log(this.name + ' found');
     }
     else if(!Array.isArray(hostiles)){
         hostiles = [hostiles];
@@ -482,7 +629,7 @@ Creep.prototype.stationaryCombat = function(hostiles){
     if(!hostiles.length){
         if(bodyCount[HEAL] && this.hits<this.hitsMax){
             //console.log(this.name + ' heal');
-            this.creep(this);
+            this.heal(this);
         }        
         return ERR_NOT_FOUND;
     }
@@ -491,24 +638,24 @@ Creep.prototype.stationaryCombat = function(hostiles){
     let rtn = undefined;    
     if(bodyCount[RANGED_ATTACK]){
         hostile = util.targetsInRange(hostiles,[this],3);
-        if(hostile != OK && hostile != ERR_NOT_FOUND){
-            this.rangedAttack(hostile);
+        if(hostile.length){
+            this.rangedAttack(hostile[0]);
             rtn = OK;
         }
         else {
-            rtn = hostile;
+            rtn = ERR_NOT_FOUND;
         }        
     }    
     
     if(bodyCount[ATTACK]){
         hostile = util.targetsInRange(hostiles,[this],1);
-        if(hostile != OK && hostile != ERR_NOT_FOUND){
+        if(hostile.length){
             //console.log(this.name + 'attack');
-            this.attack(hostile);
+            this.attack(hostile[0]);
             rtn = OK;
         }
         else {
-            rtn = Math.max(rtn,hostile);
+            rtn = Math.max(rtn,ERR_NOT_FOUND);
             if(bodyCount[HEAL] && this.hits<this.hitsMax){
                 //console.log(this.creep.name + 'heal');
                 this.heal(this);
@@ -516,8 +663,8 @@ Creep.prototype.stationaryCombat = function(hostiles){
         }        
     }
     else if(bodyCount[HEAL] && this.hits<this.hitsMax){
-        //console.log(this.name + 'heal');
-        this.creep.heal(this);
+        //console.log(this.name + ' heal');
+        this.heal(this);
     }
     
     if(rtn < 0){
@@ -671,8 +818,14 @@ Creep.prototype.moveTo = function(targets,rangeTarget) {
          }
          
          let maxOperations = 2000;
-         if(this.memory.type == 'starter'){
-             maxOperations = 5000;
+         let allowedRooms = undefined;
+         if(this.memory.type == 'starter' || this.memory.type == 'rescuer'){
+             //console.log(this.name + ' bigger moves');
+             maxOperations = 20000;
+         }
+         if(Game.map.getRoomLinearDistance(this.room.name,targets[0].pos.roomName) > 2){
+             allowedRooms = this.findAllowedRooms(targets[0].pos.roomName);
+             //console.log(this.name + ' going from ' + this.room.name + ' to  ' + targets[0].pos.roomName + ' via ' + JSON.stringify(allowedRooms));
          }
          
          //from Documentation
@@ -682,8 +835,11 @@ Creep.prototype.moveTo = function(targets,rangeTarget) {
              swampCost: 10,
              maxOps: maxOperations,
              roomCallback: (roomName) => {
+                 if(allowedRooms) {
+                     if(!allowedRooms[roomName]){return false}
+                 }
                  if(!Game.rooms[roomName]) return;
-                 if(Game.rooms[roomName].memory.defense.underAttack && (this.memory.role == 'melee' || this.memory.role == 'ranged' || this.memory.role == 'hybrid' || this.memory.role == 'patroller' || this.memory.role == 'patrollerRanged')){
+                 if(Game.rooms[roomName].memory.defense.underAttack && (this.memory.role == 'melee' || this.memory.role == 'ranged' || this.memory.role == 'hybrid' || this.memory.role == 'patroller' || this.memory.role == 'patrollerRanged' || this.memory.role == 'combat')){
                      let costs = roomObjects[roomName].CombatCostMatrix;
                      //console.log(this.name);
                      if(costs){
@@ -706,7 +862,13 @@ Creep.prototype.moveTo = function(targets,rangeTarget) {
              if(rangeTarget == 0){
                  return ERR_INVALID_ARGS;
              }
-             this.moveTo(targets,rangeTarget-1);
+             if(rangeTarget >= 3){
+                 //console.log(this.name);
+                 return this.moveTo(targets,rangeTarget-2)
+             }
+             else {
+                 return this.moveTo(targets,rangeTarget-1);
+             }
          }
 
          this.move(this.pos.getDirectionTo(path.shift()));
@@ -714,6 +876,41 @@ Creep.prototype.moveTo = function(targets,rangeTarget) {
      }
      return OK;
 };
+
+Creep.prototype.findAllowedRooms = function(destRoom) {
+    let restrictDistance = 16;
+    let stRoom = this.pos.roomName;
+    if (Game.map.getRoomLinearDistance(stRoom, destRoom) > restrictDistance) {
+        return;
+    }    
+    let allowedRooms = {[stRoom]: true, [destRoom]: true};
+    let ret = Game.map.findRoute(stRoom, destRoom, {
+        routeCallback: (roomName) => {
+            if (Game.map.getRoomLinearDistance(stRoom, roomName) > restrictDistance) {
+                return Infinity;
+            }
+            let parsed = /^[WE]([0-9]+)[NS]([0-9]+)$/.exec(roomName);
+            let isHighway = (parsed[1] % 10 === 0) || (parsed[2] % 10 === 0);
+            let isMyRoom = Game.rooms[roomName] && Game.rooms[roomName].controller && (Game.rooms[roomName].controller.my || (Game.rooms[roomName].controller.reservation && Game.rooms[roomName].controller.reservation.username == 'Vervust'));
+            if(isHighway || isMyRoom){
+                return 1;
+            }
+            if(roomBlackList[roomName] && roomName != stRoom && roomName != destRoom){
+                return Infinity;
+            }
+            return 2;
+        }
+    });
+    if(!Array.isArray(ret)){
+        console.log(this.name + ' could not find route to ' + destRoom);
+        return;
+    }
+    for(let value of ret){
+        allowedRooms[value.room] = true;
+    }
+    return allowedRooms;
+    
+}
 
 Creep.prototype.moveToRoom = function(roomName){
     if(this.room.name == roomName){
@@ -724,6 +921,8 @@ Creep.prototype.moveToRoom = function(roomName){
     //console.log(this.name + ' moving to Room ' + this.moveTo([{pos: this.pos.findClosestByRange(this.room.findExitTo(roomName))}],0));
     //console.log(this.name + ' moving to room v2 ' + this.moveTo([{pos: {x: 24,y: 24,'roomName': roomName}}], 23));
     if(this.moveTo([{pos: {x: 24,y: 24,'roomName': roomName}}], 23) == ERR_NOT_FOUND){
+        //if(this.memory.role == 'combat'){console.log('Trying again to find room')}
+        //console.log(roomName + ' name is type ' + typeof roomName);
         this.moveTo([{pos: this.pos.findClosestByRange(this.room.findExitTo(roomName))}],0);
     }
     return;
@@ -742,7 +941,7 @@ Creep.prototype.flee = function(hostiles, fleeRange){
         return ERR_NOT_FOUND;
     }
     if(fleeRange == undefined){
-        fleeRange = 4;
+        fleeRange = 5;
     }
     //console.log(this.creep.name + ' Hostiles to flee from ' + hostiles);
     
@@ -765,7 +964,7 @@ Creep.prototype.flee = function(hostiles, fleeRange){
             swampCost: 10,
             flee: true,
             roomCallback: (roomName) => {
-                if(!Game.rooms[roomName]) return;
+                if(!Game.rooms[roomName]){return}
                 let costs = roomObjects[roomName].CombatCostMatrix;
                 if(costs){
                     return costs

@@ -9,15 +9,20 @@ Spawn.prototype.run = function(){
     }
     //console.log('Spawn checked ' + this.name);
     this.roles = {settler: undefined, defender: undefined, explorer: undefined, adventurer: undefined};
-    this.roles.settler = ['harvester','transporter','filler','repairer','builder','upgrader','melee','miner'];
-    this.roles.defender = ['repairer','builder','melee','ranged']
+    this.roles.settler = ['harvester','filler','transporter','courier','labWorker','repairer','builder','upgrader','melee','miner'];
+    this.roles.defender = ['combat','repairer'];
+    this.roles.rescuer = ['combat'];
     this.roles.explorer = ['melee','harvester','reserver','transporter','repairer','builder','upgrader','dismantler'];
-    this.roles.adventurer = ['hybrid','ranged','patroller','patrollerRanged','melee','harvester','transporter','repairer','builder'];
-    this.roles.starter = ['reserver','harvester','transporter','repairer','builder','upgrader'];
+    this.roles.adventurer = ['hybrid','ranged','patroller','patrollerRanged','melee','harvester','transporter','repairer','builder','miner'];
+    this.roles.starter = ['reserver','startUp','harvester','transporter','repairer','builder','upgrader','dismantler','combat'];
+    this.roles.attacker = ['drainer','dismantler'];
+    this.spawnCreep('defender');
     this.spawnCreep('settler',true);
+    this.spawnCreep('rescuer');
     this.spawnCreep('explorer',true);
     this.spawnCreep('adventurer');
     this.spawnCreep('starter');
+    this.spawnCreep('attacker');
 };
  
 Spawn.prototype.checkExplorerAttack = function(){
@@ -55,7 +60,7 @@ Spawn.prototype.spawnCreep = function(creepType,essential){
     if(!needSpawn){return}
      
     if(essential == undefined){essential = false}     
-     
+    
     let maxCost = this.room.energyCapacityAvailable;
     let avEnergy = this.room.energyAvailable;
      
@@ -80,7 +85,7 @@ Spawn.prototype.spawnCreep = function(creepType,essential){
         }
     }
     if(this.canCreateCreep(body) == OK){
-        console.log(this.name + ' is spanwing ' + creepType + ' ' + needSpawn.role + ' ' + this.createCreep(body,null,{role: needSpawn.role, type: creepType, origin: this.room.name}) + ' with body: ' + body + ' in game tick ' + Game.time);
+        console.log(this.name + ' is spanwing ' + creepType + ' ' + this.createCreep(body,null,{role: needSpawn.role, type: creepType, origin: this.room.name}) + ' with body: ' + body + ' in game tick ' + Game.time);
         this.isSpawning = true;
         this.logMemory(creepType,needSpawn.role);
     }     
@@ -153,3 +158,23 @@ Spawn.prototype.logMemory = function(type,role){
         this.room.memory.creeps[type][role]++;
     }
 };
+
+let createCreepPrototype = StructureSpawn.prototype.createCreep;
+    StructureSpawn.prototype.createCreep = function(){
+        if(!arguments[2] || ! arguments[2].role){
+            return ERR_INVALID_ARGS;
+        }
+        
+        if(!arguments[1]) {
+            arguments[1] = (arguments[2].role + '-' + ('0000' + Memory.nameCounter).slice(-4));
+        }
+        
+        let rtn = createCreepPrototype.apply(this,arguments);
+        if (_.isString(rtn)) {
+            Memory.nameCounter = Memory.nameCounter < 9999 ? Memory.nameCounter + 1 : 0;
+        }
+        else {
+            console.log(this.room.name + ' failed to spawn ' + arguments[2].role + ': ' + rtn);
+        }
+        return rtn;
+    };

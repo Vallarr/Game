@@ -4,6 +4,31 @@ var Util = function(){
     
 };
 
+Util.prototype.gatherObjectsInArray = function(objects){
+    //Gather as many subobjects as desired from object.
+    let objectsArray = [];
+    if(objects == undefined){
+        //return empty array
+        return objectsArray;
+    }
+    if(arguments.length == 1){
+        //If no subObjects are specified, then get them all.
+        for(let subObjectKey in objects){
+            objectsArray = objectsArray.concat(objects[subObjectKey]);
+        }
+    }
+    else {
+        for(let i=1; i<arguments.length; i++){
+            //console.log('Objects ' + objects[arguments[i]] + ' argument ' + arguments[i]);
+            if(objects[arguments[i]] == undefined){
+                continue;
+            }
+            objectsArray = objectsArray.concat(objects[arguments[i]]);
+        }
+    }
+    return objectsArray;
+};
+
 Util.prototype.gatherObjectsInArrayFromIds = function(objects){
     //Gather as many subobjects as desired from object.
     //Subobjects must be Ids in array form.
@@ -47,7 +72,7 @@ Util.prototype.gatherIdsInArrayFromObjects = function(objects){
 
 Util.prototype.getArrayObjectsById = function(ids){
     let objects = [];        
-    if(!Array.isArray(ids)){
+    if(ids == undefined || !Array.isArray(ids)){
         return objects;
     }
     for(let i=0; i<ids.length; i++){
@@ -146,34 +171,17 @@ Util.prototype.findDifferent = function(array1,array2,f){
 
 Util.prototype.findArrayOfDifferentElements = function(array1,array2){
     //Find and return all elements in array1 that are not present in array 2
-    /*if(array1 == undefined || array2 == undefined){
-        return ERR_INVALID_ARGS;
-    }
-    else if(!Array.isArray(array1) || !Array.isArray(array2)){
-        return ERR_INVALID_ARGS;
-    }
-    
-    let differentElements = [];
-    let match = false;
-    for(let i=0; i<array1.length; i++){
-        match = false;
-        for(let j=0; j<array2.length && !match; j++){
-            if(array1[i].id == array2[j].id){
-                match = true;
-            }
-        }
-        if(!match){
-            differentElements.push(array1[i]);
-        }
-    }
-    return differentElements;*/
     return this.findArrayOfDifferent(array1,array2, (a,b) => {return a.id == b.id});
 };
 
 Util.prototype.findArrayOfDifferentStrings = function(array1,array2){
     //Find and return all elements in array1 that are not present in array 2
     return this.findArrayOfDifferent(array1,array2, (a,b) => {return a == b});
-}
+};
+
+Util.prototype.findArrayOfDifferentRooms = function(array1,array2){
+    return this.findArrayOfDifferent(array1,array2, (a,b) => {return a.name == b.name});
+};
 
 Util.prototype.findArrayOfDifferent = function(array1,array2,f){
     //Find and return all elements in array1 that are not present in array 2
@@ -228,6 +236,20 @@ Util.prototype.findDubbleStrings = function(array){
     return dubbleArray;    
 }
 
+Util.prototype.findExtremum = function(array,f){
+    //Find the maximum in array. Function f is used to evaluate the extremum other
+    let max = undefined;
+    if(!Array.isArray(array)){return max}
+    
+    for(let i=0; i<array.length; i++){
+        if(!max || f(array[i],max)){
+            max = array[i];
+        }
+    }
+    return max;
+    
+}
+
 Util.prototype.countBodyParts = function(hostiles){
     if(hostiles == undefined){
         return ERR_INVALID_ARGS;
@@ -251,6 +273,56 @@ Util.prototype.countBodyParts = function(hostiles){
     }
     return hostileTypes;
 };
+
+Util.prototype.generateBody = function(bp){
+    let body = [];
+    
+    for(let part in bp){
+        for(let i=0; i< bp[part]; i++){
+            body.push(part);
+        }
+    }
+    return body;
+}
+
+Creep.prototype.assessThreat = function(){
+    let threat = {};
+    threat[ATTACK] = 0;
+    threat[RANGED_ATTACK] = 0;
+    threat[TOUGH] = 0;
+    threat[HEAL] = 0;
+    threat[WORK] = 0;
+    
+    for(let i=0; i<this.body.length; i++){
+        //if(this.body[i].hits == 0){continue}
+        let power = undefined;
+        let boost = undefined;
+        
+        if(this.body[i].type == ATTACK){
+            power = ATTACK_POWER
+            if(this.body[i].boost){boost = BOOSTS[this.body[i].type][this.body[i].boost].attack}
+        }
+        else if(this.body[i].type == RANGED_ATTACK){
+            power = RANGED_ATTACK_POWER
+            if(this.body[i].boost){boost = BOOSTS[this.body[i].type][this.body[i].boost].rangedAttack}
+        }
+        else if(this.body[i].type == HEAL){
+            power = HEAL_POWER
+            if(this.body[i].boost){boost = BOOSTS[this.body[i].type][this.body[i].boost].heal}
+        }
+        else if(this.body[i].type == TOUGH){
+            power = CREEP_BODY_HITS
+            if(this.body[i].boost){boost = 1/BOOSTS[this.body[i].type][this.body[i].boost].damage}
+        }
+        else if(this.body[i].type == WORK){
+            power = DISMANTLE_POWER;
+            if(this.body[i].boost){boost = BOOSTS[this.body[i].type][this.body[i].boost].dismantle}
+        }
+        if(boost == undefined){boost = 1}
+        if(power){threat[this.body[i].type] += power * boost}
+    }
+    this.threat = threat;
+}
 
 Util.prototype.serializeCostMatrix = function(costMatrix){
     //Own version of costMatrix serialization
@@ -431,6 +503,140 @@ RoomPosition.prototype.coordinatesFromRoomName = function(){
     }
     return {'horDir':horDir, 'vertDir': vertDir, 'horCoord': Number(horCoord), 'vertCoord': Number(vertCoord)};
 };
+
+Util.prototype.coordinatesFromRoomName = function(roomName){
+    let room = roomName.split('');
+    let horDir = undefined;
+    let vertDir = undefined;
+    let horCoord = '';
+    let vertCoord = '';
+    for(let i=0; i<room.length; i++){
+        let temp = Number(room[i]);
+        if(Number.isNaN(temp)){
+            if(!horDir){
+                horDir = room[i];
+            }
+            else {
+                vertDir = room[i];
+            }
+        }
+        else{
+            if(vertDir){
+                vertCoord += room[i];
+            }
+            else if(horDir){
+                horCoord += room[i];
+            }
+        }
+    }
+    return {'horDir':horDir, 'vertDir': vertDir, 'horCoord': Number(horCoord), 'vertCoord': Number(vertCoord)};    
+}
+
+Util.prototype.findClosestRoomByRange = function(start,targets){
+    if(start == undefined || targets == undefined || !Array.isArray(targets) || !targets.length){
+        return null;
+    }
+    
+    let fromRoom = util.coordinatesFromRoomName(start);
+    let distance = undefined;
+    let closestRoom = undefined;
+    let closestRange = undefined;
+    
+    for(let i=0; i<targets.length; i++){
+        let toRoom = util.coordinatesFromRoomName(targets[i]);
+        let horRoomDev = undefined;
+        let vertRoomDev = undefined;
+        if(fromRoom.horDir == toRoom.horDir){
+            horRoomDev = Math.abs(toRoom.horCoord - fromRoom.horCoord);
+        }
+        else {
+            horRoomDev = Math.abs(toRoom.horCoord + fromRoom.horCoord + 1);
+        }
+        if(fromRoom.vertDir == toRoom.vertDir){
+            vertRoomDev = Math.abs(toRoom.vertCoord - fromRoom.vertCoord);
+        }
+        else {
+            vertRoomDev = Math.abs(toRoom.vertCoord + fromRoom.vertCoord + 1);
+        }
+        distance = vertRoomDev + horRoomDev;
+        if(!closestRoom || distance < closestRange){
+            closestRange = distance;
+            closestRoom = targets[i];
+        }        
+    }
+    //console.log('Closest to  ' + start + ' is ' + closestRoom);
+    return closestRoom;
+};
+
+RoomPosition.prototype.towerPower = function(basePower,towers){
+    let power = 0;
+    if(basePower == undefined){
+        return power;
+    }
+    if(towers == undefined){
+        if(!roomObjects || !roomObjects[this.roomName] || !roomObjects[this.roomName].structures || !roomObjects[this.roomName].structures[STRUCTURE_TOWER]){
+            return power;
+        }
+        towers = util.getArrayObjectsById(roomObjects[this.roomName].structures[STRUCTURE_TOWER]);
+    }
+    else if(!Array.isArray(towers)){
+        return ERR_INVALID_ARGS;
+    }
+    
+    for(let i=0; i<towers.length; i++){
+        let range = this.getRangeTo(towers[i].pos);
+        //console.log('Range from ' + this + ' to ' + towers[i] + ' is ' + range);
+        if(range <= TOWER_OPTIMAL_RANGE){
+            //console.log('Close damage');
+            power += basePower;
+        }
+        else if(range >= TOWER_FALLOFF_RANGE){
+            //console.log('Far damage');
+            power += basePower * (1 - TOWER_FALLOFF);
+        }
+        else {
+            //console.log('Intermediate damage ' + TOWER_POWER_ATTACK * (1 - TOWER_FALLOFF * (range - TOWER_OPTIMAL_RANGE) / (TOWER_FALLOFF_RANGE - TOWER_OPTIMAL_RANGE)));
+            power += basePower * (1 - TOWER_FALLOFF * (range - TOWER_OPTIMAL_RANGE) / (TOWER_FALLOFF_RANGE - TOWER_OPTIMAL_RANGE));
+        }
+    }
+    return power;
+};
+
+RoomPosition.prototype.towerDamage = function(towers){
+    return this.towerPower(TOWER_POWER_ATTACK,towers);
+    /*let damage = 0;
+    if(towers == undefined){
+        if(!roomObjects || !roomObjects[this.roomName] || !roomObjects[this.roomName].structures || !roomObjects[this.roomName].structures[STRUCTURE_TOWER]){
+            return damage;
+        }
+        towers = util.getArrayObjectsById(roomObjects[this.roomName].structures[STRUCTURE_TOWER]);
+    }
+    else if(!Array.isArray(towers)){
+        return ERR_INVALID_ARGS;
+    }
+    
+    for(let i=0; i<towers.length; i++){
+        let range = this.getRangeTo(towers[i].pos);
+        //console.log('Range from ' + this + ' to ' + towers[i] + ' is ' + range);
+        if(range <= TOWER_OPTIMAL_RANGE){
+            //console.log('Close damage');
+            damage += TOWER_POWER_ATTACK;
+        }
+        else if(range >= TOWER_FALLOFF_RANGE){
+            //console.log('Far damage');
+            damage += TOWER_POWER_ATTACK * (1 - TOWER_FALLOFF);
+        }
+        else {
+            //console.log('Intermediate damage ' + TOWER_POWER_ATTACK * (1 - TOWER_FALLOFF * (range - TOWER_OPTIMAL_RANGE) / (TOWER_FALLOFF_RANGE - TOWER_OPTIMAL_RANGE)));
+            damage += TOWER_POWER_ATTACK * (1 - TOWER_FALLOFF * (range - TOWER_OPTIMAL_RANGE) / (TOWER_FALLOFF_RANGE - TOWER_OPTIMAL_RANGE));
+        }
+    }
+    return damage;*/
+};
+
+RoomPosition.prototype.towerHeal = function(towers){
+    return this.towerPower(TOWER_POWER_HEAL,towers);
+}
 
 profiler.registerObject(Util, 'Util');
 

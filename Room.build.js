@@ -1,4 +1,7 @@
 Room.prototype.build = function(){
+    let nConstructionSites = 0
+    for(let site in Game.constructionSites){nConstructionSites++}
+    if(nConstructionSites >= MAX_CONSTRUCTION_SITES){return}
     //Structure planning
 
     let structures = _.filter(plannedStructures, (structure) => structure.room == this.name);
@@ -21,12 +24,6 @@ Room.prototype.build = function(){
             else {
                 nBuild = 0;
             }
-            
-            /*let nBuild = this.find(FIND_STRUCTURES, {
-                filter: (structure) => {
-                    return (structure.structureType == struct.structureType);
-                }
-            }).length;*/
             let nToBeBuild = this.find(FIND_CONSTRUCTION_SITES, {
                 filter: (site) => {
                     return (site.structureType == struct.structureType);
@@ -44,8 +41,8 @@ Room.prototype.build = function(){
                 }
                 let lookSite = this.lookForAt(LOOK_CONSTRUCTION_SITES,struct.pos.x[i],struct.pos.y[i]);
                 if(!lookStruct.length && !lookSite.length){
-                    this.createConstructionSite(struct.pos.x[i],struct.pos.y[i],struct.structureType);
-                    console.log('Building ' + struct.structureType + ' at position x=' + struct.pos.x[i] + ' y=' + struct.pos.y[i] + ' in room ' + this + ' in game tick ' + Game.time);
+                    let rtn = this.createConstructionSite(struct.pos.x[i],struct.pos.y[i],struct.structureType);
+                    console.log('Building ' + struct.structureType + ' at position x=' + struct.pos.x[i] + ' y=' + struct.pos.y[i] + ' in room ' + this + ' in game tick ' + Game.time + ' ' + rtn);
                     nToBeBuild++;
                 }
             }

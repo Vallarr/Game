@@ -3,10 +3,16 @@ global.util = new Utilities();
 require('Global.variables');
 require('Global.constants');
 require('Creep');
+global.roomObjectContainer = require('roomObjectContainer');
+require('Room.properties');
 require('Room.checks');
 require('Room.build');
 require('Link');
 require('Spawn');
+require('Lab');
+require('Room.spawnQueue');
+require('Room.creepsToSpawn');
+
 var trade = require('Market');
 
 const profiler = require('screeps.profiler');
@@ -37,7 +43,15 @@ module.exports.loop = function () {
             catch(err){
                 console.log('Error while linking energy in room ' + name);
                 console.log(err);
-            }        
+            }
+            try {
+                let room = Game.rooms[name];
+                room.createBoosts();
+            }
+            catch(err){
+                console.log('Error while creating boosts in room ' + name);
+                console.log(err);
+            }            
         }
         
         //If number of creeps in memory is wrong use this to recount creeps
@@ -89,6 +103,22 @@ module.exports.loop = function () {
             }
             catch(err){
                 console.log('Error while building structures in room ' + name);
+                console.log(err);
+            }
+            try {
+                let room = Game.rooms[name];
+                room.populateSpawnQueue();
+            }
+            catch(err) {
+                console.log('Error while filling spawn queue');
+                console.log(err);
+            }
+            try {
+                let room = Game.rooms[name];
+                room.checkCreepsToSpawn();
+            }
+            catch(err){
+                console.log('Error while determining number of creeps to spawn');
                 console.log(err);
             }
         }
