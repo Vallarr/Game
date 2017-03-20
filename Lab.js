@@ -6,7 +6,7 @@ Room.prototype.createBoosts = function(){
 };
 
 Room.prototype.readReaction = function() {
-    if(Memory.boosts && Memory.boosts[this.name] && Memory.boosts[this.name].amount) {
+    if(Memory.boosts && Memory.boosts[this.name]) {
         if(this.memory.boosts){
             //Still creating another boost
             let newType = REACTIONS[Memory.boosts[this.name].reagents[0]][Memory.boosts[this.name].reagents[1]];
@@ -26,26 +26,23 @@ Room.prototype.readReaction = function() {
         else {
             this.memory.boosts = [{amount: Memory.boosts[this.name].amount, type: REACTIONS[Memory.boosts[this.name].reagents[0]][Memory.boosts[this.name].reagents[1]], reagents: Memory.boosts[this.name].reagents}];
         }
-        Memory.boosts[this.name].amount = 0;
+        delete Memory.boosts[this.name];
     }
 };
 
 Room.prototype.react = function(){
-    if(!this.memory.boosts || !this.memory.boosts.length || !roomObjects[this.name].labs){return}
-    let sourceLabs = util.gatherObjectsInArrayFromIds(roomObjects[this.name].labs,'source');
-    let targetLabs = util.gatherObjectsInArrayFromIds(roomObjects[this.name].labs,'target');
+    if(!this.memory.boosts || !this.memory.boosts.length){return}
+    let sourceLabs = util.gatherObjectsInArray(this.labs,'source');
+    let targetLabs = util.gatherObjectsInArray(this.labs,'target');
     
     if(sourceLabs.length != 2 || targetLabs.length < 1){
         //Not the right amount of labs to perform reaction
         return;
     }
-    let reagents = [];
-    if(this.memory.boosts[0].reagents){
-        reagents = this.memory.boosts[0].reagents;
+    if(!this.memory.reactionType){
+        this.memory.reactionType = this.memory.boosts[0].type;
     }
-    else {
-        for(let reagent in this.memory.boosts[0].supply){reagents.push(reagent)}
-    }
+    let reagents = this.memory.boosts[0].reagents;
     let mineralsInLabs = [];
     for(let i=0; i<sourceLabs.length; i++){
         if(sourceLabs[i].mineralType){
@@ -69,6 +66,7 @@ Room.prototype.react = function(){
         }
         else {
             this.memory.boosts.shift();
+            delete this.memory.reactionType;
             break;
         }        
     }

@@ -11,7 +11,15 @@ global.ALLIES = {
     'Vultured': true,
     'Ransom': true,
     'Hive_': true,
-    'Rumatah': true
+    'Greenfox': true,
+    'haaduken': true,
+    'rouhet': true,
+    'kraiik': true,
+    'userwins': true,
+    'PervyPenguin': true,
+    'gastraph': true,
+    'Violaman': true,
+    'IFor': true
 };
 
 global.ROOM_RESET_TIMER = 10;
@@ -34,8 +42,13 @@ global.ROLE_PATROLLER = 'patroller';
 global.ROLE_PATROLLERRANGED = 'patrollerRanged';
 
 global.CREEP_BODY_HITS = 100;
-global.DEFENSE_DAMAGE_SURPLUS = 100;
+global.DEFENSE_DAMAGE_SURPLUS = 200;
 global.DEFENSE_MAX_NUMBER_ATTACK = 33;
+
+global.CONTROLLER_RESERVE_MIN = 1000;
+global.CONTROLLER_RESERVE_OK = 0.9 * CONTROLLER_RESERVE_MAX;
+
+global.DEFAULT_DECAY = 200;
 
 global.spawnBasePriority = {
     defender: {

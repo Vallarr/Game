@@ -1,22 +1,11 @@
 Room.prototype.linkEnergy = function(){
-    let roomLinks = roomObjects[this.name].links;
-    if(roomLinks == undefined){
-        return;
-    }
-    //console.log(JSON.stringify(roomLinks));
-    let storageLinks = util.gatherObjectsInArrayFromIds(roomLinks,'storage');
-    if(roomLinks.storage == undefined){
-        //Need a storage link, since everything is linked to it.
-        return;
-    }
-    let sourceLinks = util.gatherObjectsInArrayFromIds(roomLinks,'source');
-    let upgraderLinks = util.gatherObjectsInArrayFromIds(roomLinks,'upgrader');
-    let spawnLinks = util.gatherObjectsInArrayFromIds(roomLinks,'spawn');
+    let storageLinks = util.gatherObjectsInArray(this.links,'storage');
+    let sourceLinks = util.gatherObjectsInArray(this.links,'source');
+    let upgraderLinks = util.gatherObjectsInArray(this.links,'upgrader');
+    let spawnLinks = util.gatherObjectsInArray(this.links,'spawn');
     
     //Link sources to spawn or storage
-    if(sourceLinks){
-        this.linkFromTo(sourceLinks,spawnLinks,upgraderLinks,storageLinks);
-    }
+    this.linkFromTo(sourceLinks,spawnLinks,upgraderLinks,storageLinks);
     
     //Link storage to spawn or upgrader
     this.linkFromTo(storageLinks,spawnLinks,upgraderLinks);
@@ -39,6 +28,7 @@ Room.prototype.linkFromTo = function(from){
                 targetLink = from[i].bestTransfer(to);
                 if(targetLink != ERR_NOT_FOUND){
                     from[i].transfer(targetLink);
+                    targetLink.receiving = true;
                     break;
                 }
             }
@@ -56,7 +46,7 @@ StructureLink.prototype.bestTransfer = function(to){
     let amount = 0;
     for(let i=0; i<to.length; i++){
         //Edit: Only transfer to empty links
-        if(to[i].energy == 0){
+        if(to[i].energy == 0 && !to[i].receiving){
             amount = to[i].energyCapacity - to[i].energy;
             if(amount == toTransfer){
                 return to[i];
@@ -81,3 +71,18 @@ StructureLink.prototype.transfer = function(targetLink,amount){
     }
     return this.transferEnergy(targetLink, amount);
 };
+
+Object.defineProperty(StructureLink.prototype, 'receiving', {
+    get: function(){
+        if(this === StructureLink.prototype || this == undefined){return}
+        if(!this._receiving){
+            this._receiving = false;
+        }
+        return this._receiving;
+    },
+    set: function(value){
+        this._receiving = value;
+    },
+    enumerable: false,
+    configurable: true
+});

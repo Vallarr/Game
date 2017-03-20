@@ -15,8 +15,9 @@ Spawn.prototype.run = function(){
     this.roles.explorer = ['melee','harvester','reserver','transporter','repairer','builder','upgrader','dismantler'];
     this.roles.adventurer = ['hybrid','ranged','patroller','patrollerRanged','melee','harvester','transporter','repairer','builder','miner'];
     this.roles.starter = ['reserver','startUp','harvester','transporter','repairer','builder','upgrader','dismantler','combat'];
-    this.roles.attacker = ['drainer','dismantler'];
+    this.roles.attacker = ['drainer','dismantler','healer','dismantler2','healer2','reserver'];
     this.spawnCreep('defender');
+    this.spawnCreep('attacker');
     this.spawnCreep('settler',true);
     this.spawnCreep('rescuer');
     this.spawnCreep('explorer',true);
@@ -65,15 +66,20 @@ Spawn.prototype.spawnCreep = function(creepType,essential){
     let avEnergy = this.room.energyAvailable;
      
     let body = undefined;
-    if(!creepBodies[this.room.name] || !creepBodies[this.room.name][creepType] || !creepBodies[this.room.name][creepType][needSpawn.role]){
-        //console.log(this.name + ' using default');
+    if(!creepBodies || !creepBodies[this.room.name] || !creepBodies[this.room.name][creepType] || !creepBodies[this.room.name][creepType][needSpawn.role]){
         body = defaultCreepBodies[creepType][needSpawn.role];
     }
     else {
-        //console.log(this.name + ' not using default');
         body = creepBodies[this.room.name][creepType][needSpawn.role];
     }
     let bodyCost = this.bodyCost(body);
+    
+    let creepMemory = {role: needSpawn.role, type: creepType, origin: this.room.name};
+    if(addCreepMemory && addCreepMemory[this.room.name] && addCreepMemory[this.room.name][creepType] && addCreepMemory[this.room.name][creepType][needSpawn.role]){
+        for(let addMem in addCreepMemory[this.room.name][creepType][needSpawn.role]){
+            creepMemory[addMem] = addCreepMemory[this.room.name][creepType][needSpawn.role][addMem];
+        }
+    }
      
     if(essential && bodyCost > avEnergy){
         //Spawn best creep you can with available energy
@@ -85,7 +91,8 @@ Spawn.prototype.spawnCreep = function(creepType,essential){
         }
     }
     if(this.canCreateCreep(body) == OK){
-        console.log(this.name + ' is spanwing ' + creepType + ' ' + this.createCreep(body,null,{role: needSpawn.role, type: creepType, origin: this.room.name}) + ' with body: ' + body + ' in game tick ' + Game.time);
+        let rtn = this.createCreep(body,null,creepMemory);
+        //console.log(this.name + ' in room ' + this.room.name + ' is spanwing ' + creepType + ' ' + rtn + ' with body: ' + body + ' in game tick ' + Game.time);
         this.isSpawning = true;
         this.logMemory(creepType,needSpawn.role);
     }     
@@ -102,8 +109,12 @@ Spawn.prototype.needSpawn = function(creepType){
             //No creeps of this type yet
             nCreep[i] = 0;
         }
-        //console.log(this.name + ' ' + creepType + ' ' + this.roles[creepType][i] + ' need: ' + creepsToSpawn[this.room.name][creepType][this.roles[creepType][i]] + ' have ' + nCreep[i]);
         needSpawn = needSpawn || nCreep[i] < creepsToSpawn[this.room.name][creepType][this.roles[creepType][i]];
+        /*if(this.room.name == 'W15N8'){
+            //console.log(this.name + ' ' + creepType + ' ' + this.roles[creepType][i] + ' need: ' + creepsToSpawn[this.room.name][creepType][this.roles[creepType][i]] + ' have ' + nCreep[i]);
+            //console.log(nCreep[i] < creepsToSpawn[this.room.name][creepType][this.roles[creepType][i]], ' ', needSpawn);
+            //console.log(Number.isInteger(creepsToSpawn[this.room.name][creepType][this.roles[creepType][i]]));
+        }*/
         if(needSpawn){
             return {role: this.roles[creepType][i], number: nCreep[i]};
         }

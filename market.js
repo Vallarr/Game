@@ -33,83 +33,81 @@ Market.prototype.makeDeals = function(deals){
     if(deals == undefined){
         return;
     }
-    for(let i=0; i<deals.length; i++){
-        let order = Game.market.getOrderById(deals[i].id);
+    for(let room in deals){
+        let deal = deals[room];
+        let order = Game.market.getOrderById(deal.id);
         if(order){
             let amount = 0;
             if(order.type == ORDER_BUY){
-                amount = Math.min(deals[i].amount,order.amount,Game.rooms[deals[i].room].terminal.store[order.resourceType]);                
+                amount = Math.min(deal.amount,order.amount,Game.rooms[room].terminal.store[order.resourceType]);                
             }
             else {
-                amount = Math.min(deals[i].amount,order.amount);
+                amount = Math.min(deal.amount,order.amount);
             }
             
-            let rtn = Game.market.deal(order.id,amount,deals[i].room);
+            let rtn = Game.market.deal(order.id,amount,room);
             //console.log('Dealing ' + amount + ' ' + rtn);
             if(rtn == OK){
-                console.log('Dealing ' + amount + ' of resource ' + order.resourceType + ' in room ' + deals[i].room + ' ' + rtn);
+                console.log('Dealing ' + amount + ' of resource ' + order.resourceType + ' in room ' + room + ' ' + rtn);
             }
             else {
-                deals[i].id = null;
+                console.log('Could not deal ' + amount + ' of resource ' + order.resourceType + ' in room ' + room + ' ' + rtn);
             }
         }
-        else {
-            deals[i].id = null;
-        }
-        //console.log(JSON.stringify(deals[i]));
-        //console.log(JSON.stringify(Game.market.getOrderById(deals[i].id)));
+        delete deals[room];
     }
-    Memory.market.deals = deals;
 };
 
 Market.prototype.fillTerminals = function(fillOrders){
     if(fillOrders == undefined){
         return;
     }
-    for(let name in Game.rooms){
-        if(fillOrders[name]){
-            if(Game.rooms[name].memory.orders == undefined){
-                Game.rooms[name].memory.orders = {};
-            }
-            for(let i=0; i<fillOrders[name].length; i++){
-                if(fillOrders[name][i].amount != 0){
-                    if(Game.rooms[name].memory.orders[fillOrders[name][i].resourceType]){
-                        Game.rooms[name].memory.orders[fillOrders[name][i].resourceType] += fillOrders[name][i].amount;
-                    }
-                    else {
-                        Game.rooms[name].memory.orders[fillOrders[name][i].resourceType] = fillOrders[name][i].amount;
-                    }
-                    fillOrders[name][i].amount = 0;                    
+    for(let name in fillOrders){
+        if(Game.rooms[name].memory.orders == undefined){
+            Game.rooms[name].memory.orders = {};
+        }
+        let nRes = 0;
+        for(let resourceType in fillOrders[name]){
+            nRes++;
+            if(fillOrders[name][resourceType] != 0){
+                if(Game.rooms[name].memory.orders[resourceType]){
+                    Game.rooms[name].memory.orders[resourceType] += fillOrders[name][resourceType];
                 }
+                else {
+                    Game.rooms[name].memory.orders[resourceType] = fillOrders[name][resourceType];
+                }
+                delete fillOrders[name][resourceType];
             }
         }
+        if(nRes == 0){
+            delete fillOrders[name];
+        }
     }
-    Memory.market.fillTerminal = fillOrders;
 };
 
 Market.prototype.transferResources = function(transfer){
     if(transfer == undefined){
         return;
     }
-    for(let i=0; i<transfer.length; i++){
-        if(transfer[i].amount >= 100){
-            //let distance = Math.max(Math.abs(Number(transfer[i].to.substr(1,2)) - Number(transfer[i].from.substr(1,2))), Math.abs(Number(transfer[i].to.substr(4,2)) - Number(transfer[i].from.substr(4,2))));
-            let amount = Math.min(Game.rooms[transfer[i].from].terminal.store[transfer[i].resourceType], transfer[i].amount);
-            let cost = Game.market.calcTransactionCost(amount,transfer[i].to,transfer[i].from);
-            if(transfer[i].resourceType == RESOURCE_ENERGY){
-                amount = Math.min(Math.max(0,Game.rooms[transfer[i].from].terminal.store[transfer[i].resourceType] - cost), transfer[i].amount);
+    for(let roomName in transfer){
+        if(transfer[roomName].amount >= 100){
+            let amount = Math.min(Game.rooms[roomName].terminal.store[transfer[roomName].resourceType], transfer[roomName].amount);
+            let cost = Game.market.calcTransactionCost(amount, transfer[roomName].to,roomName);
+            if(transfer[roomName].resourceType == RESOURCE_ENERGY){
+                amount = Math.min(Math.max(0,Game.rooms[roomName].terminal.store[transfer[roomName].resourceType] - cost), transfer[roomName].amount);
             }
             else {
-                amount = Math.min(transfer[i].amount, Game.rooms[transfer[i].from].terminal.store[transfer[i].resourceType], Game.rooms[transfer[i].from].terminal.store[RESOURCE_ENERGY]/cost * transfer[i].amount)
+                amount = Math.min(Game.rooms[roomName].terminal.store[transfer[roomName].resourceType], transfer[roomName].amount, Math.floor(Game.rooms[roomName].terminal.store[RESOURCE_ENERGY]/cost * transfer[roomName].amount));
             }
             if(amount >= 100){
-                //console.log('Amount of resource ' + transfer[i].resourceType + ' that can be transfered is ' + amount);
-                let rtn = Game.rooms[transfer[i].from].terminal.send(transfer[i].resourceType,amount,transfer[i].to);
-                console.log('Transfering ' + amount + ' units of ' + transfer[i].resourceType + ' from room ' + transfer[i].from + ' to room ' + transfer[i].to + ' ' + rtn);
+                let rtn = Game.rooms[roomName].terminal.send(transfer[roomName].resourceType,amount,transfer[roomName].to);
+                console.log('Transfering ' + amount + ' units of ' + transfer[roomName].resourceType + ' from room ' + roomName + ' to room ' + transfer[roomName].to + ' ' + rtn);
                 if(rtn == OK){
-                    transfer[i].amount -= amount;
+                    transfer[roomName].amount -= amount;
                 }
-                //console.log('Left of resource ' + transfer[i].resourceType + ' is ' + transfer[i].amount);                
+                if(transfer[roomName].amount == 0){
+                    delete transfer[roomName];
+                }
             }
         }
     }

@@ -18,12 +18,13 @@ Room.prototype.build = function(){
         }                
         if(struct.RCL <= level){
             let nBuild = undefined;
-            if(roomObjects[this.name].structures[struct.structureType]){
-                nBuild = roomObjects[this.name].structures[struct.structureType].length;
+            if(this.structures[struct.structureType]){
+                nBuild = this.structures[struct.structureType].length;
             }
             else {
                 nBuild = 0;
             }
+
             let nToBeBuild = this.find(FIND_CONSTRUCTION_SITES, {
                 filter: (site) => {
                     return (site.structureType == struct.structureType);

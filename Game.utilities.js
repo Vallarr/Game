@@ -568,16 +568,124 @@ Util.prototype.findClosestRoomByRange = function(start,targets){
     return closestRoom;
 };
 
+Util.prototype.classifyCreeps = function(creeps){
+    let types = {melee: [], ranged: [], heal: [], meleeHeal: [], meleeRanged: [], rangedHeal: [], hybrid: [], claim: [], other: [], number: creeps.length, attack: 0, ranged_attack: 0, tough: 0, heal_power: 0};
+    
+     for(let i=0; i<creeps.length; i++){
+         creeps[i].assessThreat();
+         types.attack += creeps[i].threat[ATTACK];
+         types.ranged_attack += creeps[i].threat[RANGED_ATTACK];
+         if(creeps[i].threat[TOUGH] > types.tough){
+             types.tough = creeps[i].threat[TOUGH];
+             types.nTough = creeps[i].getActiveBodyparts(TOUGH);
+         }
+         types.heal_power += creeps[i].threat[HEAL];
+         
+         if(creeps[i].getActiveBodyparts(ATTACK) || creeps[i].getActiveBodyparts(WORK)){
+             if(creeps[i].getActiveBodyparts(HEAL)){
+                 if(creeps[i].getActiveBodyparts(RANGED_ATTACK)){
+                     types.hybrid.push(creeps[i]);
+                 }
+                 else {
+                     types.meleeHeal.push(creeps[i]);
+                 }
+             }
+             else if(creeps[i].getActiveBodyparts(RANGED_ATTACK)){
+                 types.meleeRanged.push(creeps[i]);
+             }
+             else {
+                 types.melee.push(creeps[i]);
+             }
+         }
+         else if(creeps[i].getActiveBodyparts(RANGED_ATTACK)){
+             if(creeps[i].getActiveBodyparts(HEAL)){
+                 types.rangedHeal.push(creeps[i]);
+             }
+             else {
+                 types.ranged.push(creeps[i]);
+             }
+         }
+         else if(creeps[i].getActiveBodyparts(HEAL)){
+             types.heal.push(creeps[i]);
+         }
+         else if(creeps[i].getActiveBodyparts(CLAIM)){
+             types.claim.push(creeps[i]);
+         }
+         else {
+             types.other.push(creeps[i]);
+         }
+     }      
+     return types;
+};
+
+Util.prototype.classifyRamparts = function(ramparts,creeps){
+    let rampart = {melee: [], ranged: [], other: []};
+    
+    let hostilesRange1 = this.gatherObjectsInArray(creeps,'melee','meleeRanged','meleeHeal','ranged','rangedHeal','heal','claim','hybrid');
+    let rampartHostilesInRange1 = this.targetsInRange(ramparts,hostilesRange1,1);
+    let rampartsWithoutTargets = this.findArrayOfDifferentElements(ramparts,rampartHostilesInRange1);
+    
+    let closeRangeHostilesRange3 = this.gatherObjectsInArray(creeps,'melee','meleeRanged','meleeHeal','hybrid');
+    let rampartCloseRangeHostilesRange3 = this.targetsInRange(rampartsWithoutTargets,closeRangeHostilesRange3,3);
+    rampartsWithoutTargets = this.findArrayOfDifferentElements(rampartsWithoutTargets,rampartCloseRangeHostilesRange3);
+    
+    let hostilesRange3 = this.gatherObjectsInArray(creeps,'ranged','rangedHeal','heal','claim');
+    let rampartHostilesInRange3 = this.targetsInRange(rampartsWithoutTargets,hostilesRange3,3);
+    rampartsWithoutTargets = this.findArrayOfDifferentElements(rampartsWithoutTargets,rampartHostilesInRange3);
+    
+    rampart.melee = rampartHostilesInRange1.concat(rampartCloseRangeHostilesRange3);
+    rampart.ranged = rampartHostilesInRange3;
+    rampart.other = rampartsWithoutTargets;
+    
+    return rampart;
+};
+
+Object.defineProperty(Util.prototype, 'targOfCreeps', {
+    get: function(){
+        if(this == Util.prototype || this == undefined){return}
+        if(!this._targetsOfCreeps){
+            this._targetsOfCreeps = {};
+            let possibleTargets = ['targetContainer','getDropped','controller','source','mineralSource','targetRoom','controllerRoom','sourceRoom','mineRoom','starterRoom'];
+            for(let name in Game.creeps){
+                let creep = Game.creeps[name];
+                for(let i=0; i<possibleTargets.length; i++){
+                    if(creep.memory[possibleTargets[i]]){
+                        if(!this._targetsOfCreeps[possibleTargets[i]]){
+                            this._targetsOfCreeps[possibleTargets[i]] = {[creep.memory[possibleTargets[i]]]: [creep], all: [creep.memory[possibleTargets[i]]]};
+                        }
+                        else {
+                            this._targetsOfCreeps[possibleTargets[i]].all.push(creep.memory[possibleTargets[i]]);
+                            if(!this._targetsOfCreeps[possibleTargets[i]][creep.memory[possibleTargets[i]]]){
+                                this._targetsOfCreeps[possibleTargets[i]][creep.memory[possibleTargets[i]]] = [creep];
+                            }
+                            else {
+                                this._targetsOfCreeps[possibleTargets[i]][creep.memory[possibleTargets[i]]].push(creep);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return this._targetsOfCreeps;
+    },
+    set: function(value){
+        this._targetsOfCreeps = value;
+    },
+    enumerable: false,
+    configurable: true
+});
+
 RoomPosition.prototype.towerPower = function(basePower,towers){
     let power = 0;
     if(basePower == undefined){
         return power;
     }
     if(towers == undefined){
-        if(!roomObjects || !roomObjects[this.roomName] || !roomObjects[this.roomName].structures || !roomObjects[this.roomName].structures[STRUCTURE_TOWER]){
+        let room = Game.rooms[this.roomName];
+        if(!room){
             return power;
         }
-        towers = util.getArrayObjectsById(roomObjects[this.roomName].structures[STRUCTURE_TOWER]);
+        towers = util.gatherObjectsInArray(room.structures,STRUCTURE_TOWER);
     }
     else if(!Array.isArray(towers)){
         return ERR_INVALID_ARGS;
@@ -604,39 +712,26 @@ RoomPosition.prototype.towerPower = function(basePower,towers){
 
 RoomPosition.prototype.towerDamage = function(towers){
     return this.towerPower(TOWER_POWER_ATTACK,towers);
-    /*let damage = 0;
-    if(towers == undefined){
-        if(!roomObjects || !roomObjects[this.roomName] || !roomObjects[this.roomName].structures || !roomObjects[this.roomName].structures[STRUCTURE_TOWER]){
-            return damage;
-        }
-        towers = util.getArrayObjectsById(roomObjects[this.roomName].structures[STRUCTURE_TOWER]);
-    }
-    else if(!Array.isArray(towers)){
-        return ERR_INVALID_ARGS;
-    }
-    
-    for(let i=0; i<towers.length; i++){
-        let range = this.getRangeTo(towers[i].pos);
-        //console.log('Range from ' + this + ' to ' + towers[i] + ' is ' + range);
-        if(range <= TOWER_OPTIMAL_RANGE){
-            //console.log('Close damage');
-            damage += TOWER_POWER_ATTACK;
-        }
-        else if(range >= TOWER_FALLOFF_RANGE){
-            //console.log('Far damage');
-            damage += TOWER_POWER_ATTACK * (1 - TOWER_FALLOFF);
-        }
-        else {
-            //console.log('Intermediate damage ' + TOWER_POWER_ATTACK * (1 - TOWER_FALLOFF * (range - TOWER_OPTIMAL_RANGE) / (TOWER_FALLOFF_RANGE - TOWER_OPTIMAL_RANGE)));
-            damage += TOWER_POWER_ATTACK * (1 - TOWER_FALLOFF * (range - TOWER_OPTIMAL_RANGE) / (TOWER_FALLOFF_RANGE - TOWER_OPTIMAL_RANGE));
-        }
-    }
-    return damage;*/
 };
 
 RoomPosition.prototype.towerHeal = function(towers){
     return this.towerPower(TOWER_POWER_HEAL,towers);
-}
+};
+
+Object.defineProperty(RoomPosition.prototype, 'onExit', {
+    get: function(){
+        if(this === RoomPosition.prototype || this == undefined){return}
+        if(!this._onExit){
+            this._onExit = this.x == 0 || this.x == 49 || this.y == 0 || this.y == 49;
+        }
+        return this._onExit;
+    },
+    set: function(value){
+        this._onExit = value;
+    },
+    enumerable: false,
+    configurable: true
+});
 
 profiler.registerObject(Util, 'Util');
 

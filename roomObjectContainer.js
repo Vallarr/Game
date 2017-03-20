@@ -75,7 +75,7 @@ Object.defineProperty(roomObjectContainer.prototype, 'baseCostMatrix', {
             // Avoid construction sites
             this.constructionSites.forEach((s) => {
                 let structure = Game.constructionSites[s];
-                if(structure.structureType != STRUCTURE_ROAD && structure.structureType != STRUCTURE_RAMPART && structure.structureType != STRUCTURE_CONTAINER){
+                if(structure && structure.structureType != STRUCTURE_ROAD && structure.structureType != STRUCTURE_RAMPART && structure.structureType != STRUCTURE_CONTAINER){
                     costs.set(structure.pos.x, structure.pos.y, 0xff);
                 }
             });
@@ -90,82 +90,37 @@ Object.defineProperty(roomObjectContainer.prototype, 'baseCostMatrix', {
     configurable: true
 });
 
-Object.defineProperty(roomObjectContainer.prototype, 'CostMatrix', {
-    get: function(){
-        if(this === roomObjectContainer.prototype || this == undefined){return}
-        if(!this._CostMatrix){
-            let costs = this.baseCostMatrix.clone();
-            this.creeps.forEach((c) => {
-                if(!c.my && !ALLIES[c.owner.username]){
-                    for(let i=-4; i<5; i++){
-                        for(let j=-4; j<5; j++){
-                            costs.set(c.pos.x+i,c.pos.y+j,0xff);
-                        }
-                    }
-                }
-            });
-            this._CostMatrix = costs;
-        }
-        return this._CostMatrix;
-    },
-    set: function(value){
-        this._CostMatrix = value;
-    },
-    enumerable: false,
-    configurable: true
-});
-
-Object.defineProperty(roomObjectContainer.prototype, 'CombatCostMatrix', {
-    get: function(){
-        if(this === roomObjectContainer.prototype || this == undefined){return}
-        if(!Memory.rooms[this.roomName].underAttack){
-            return this.CostMatrix;
-        }
-        else if(!this._CombatCostMatrix){
-            let costs = this.baseCostMatrix.clone();
-            this.creeps.forEach((c) => {
-                costs.set(c.pos.x, c.pos.y, 0xff);
-            });
-        }
-        return this._CombatCostMatrix;
-    },
-    set: function(value){
-        this._CombatCostMatrix = value;
-    },
-    enumerable: false,
-    configurable: true
-});
-
 Object.defineProperty(roomObjectContainer.prototype, 'containers', {
     get: function(){
         if(this === roomObjectContainer.prototype || this == undefined){return}
         if(!this._containers && Game.rooms[this.roomName]){
+            this._containers = {};
             let room = Game.rooms[this.roomName];
             let containers = room.structures[STRUCTURE_CONTAINER];
             let sources = room.sources;
             let mineral = room.mineral;
             let spawns = room.structures[STRUCTURE_SPAWN];
             if(spawns == undefined){spawns = []}
-            
+
             if(containers){
                 let sourceContainers = util.targetsInRange(containers,sources,2);
                 let mineralContainers = util.targetsInRange(containers,mineral,2);
                 let upgraderContainers;
                 if(room.controller) {
-                    upgraderContainers : util.targetsInRange(containers,[room.controller],2);
+                    upgraderContainers = util.targetsInRange(containers,[room.controller],2);
                 }
                 else {upgraderContainers = []}
                 containers = util.findArrayOfDifferentElements(containers,sourceContainers.concat(mineralContainers,upgraderContainers));
                 let spawnContainers = util.targetsInRange(containers,spawns,3);
                 containers = util.findArrayOfDifferentElements(containers,spawnContainers);
                 
-                this._containers = {};
+                
                 this._containers.source = sourceContainers.concat(containers).map((c) => c.id);
                 this._containers.mineral = mineralContainers.map((c) => c.id);
                 this._containers.spawn = spawnContainers.map((c) => c.id);
                 this._containers.upgrader = upgraderContainers.map((c) => c.id);
-                if(room.storage){this._containers.storage = room.storage.id}
             }
+            if(room.storage){this._containers.storage = [room.storage.id]}
         }
         return this._containers;
     },
@@ -181,12 +136,13 @@ Object.defineProperty(roomObjectContainer.prototype, 'links', {
         if(this === roomObjectContainer.prototype || this == undefined){return}
         if(!this._links){
             let room = Game.rooms[this.roomName];
-            let links = room.structures[STRUCTURE_LINK].filter((l) => l.my);
+            let links = room.structures[STRUCTURE_LINK];
             let sources = room.sources;
             let spawns = room.structures[STRUCTURE_SPAWN];
             if(spawns == undefined){spawns = []}
             
             if(links){
+                links = links.filter((l) => l.my);
                 let sourceLinks = util.targetsInRange(links,sources,2);
                 let storageLinks;
                 if(room.storage){
@@ -198,12 +154,12 @@ Object.defineProperty(roomObjectContainer.prototype, 'links', {
                     upgraderLinks = util.targetsInRange(links,[room.controller],2);
                 }
                 else {upgraderLinks = []}
-                links = util.findArrayOfDifferentElements(links,sourcesLinks.concat(storageLinks,upgraderLinks));
+                links = util.findArrayOfDifferentElements(links,sourceLinks.concat(storageLinks,upgraderLinks));
                 let spawnLinks = util.targetsInRange(links,spawns,3);
                 links = util.findArrayOfDifferentElements(links,spawnLinks);
                 
                 this._links = {};
-                this._links.source = sourceLinks.map((l) => l.id);
+                this._links.source = sourceLinks.concat(links).map((l) => l.id);
                 this._links.storage = storageLinks.map((l) => l.id);
                 this._links.upgrader = upgraderLinks.map((l) => l.id);
                 this._links.spawn = spawnLinks.map((l) => l.id);
@@ -222,6 +178,12 @@ Object.defineProperty(roomObjectContainer.prototype, 'labs', {
     get: function(){
         if(this === roomObjectContainer.prototype || this == undefined){return}
         if(!this._labs){
+            //Auto detect source labs, destination and boosting labs. Always use same setup on 4x4 space (L=lab,R=road,0=empty/whatever)
+            // RCL7         RCL8
+            //R L L 0      R L L 0
+            //0 R L 0      L R L L
+            //0 L R 0      L L R L
+            //0 L L R      0 L L R
             let room = Game.rooms[this.roomName];
             let labs = room.structures[STRUCTURE_LAB];
             if(labs){
@@ -232,10 +194,24 @@ Object.defineProperty(roomObjectContainer.prototype, 'labs', {
                     }
                 }
                 let targetLabs = util.findArrayOfDifferentElements(labs,sourceLabs);
+                let nBoosts = 0;
+                if(room.memory.prepBoosts){
+                    for(let boost in room.memory.prepBoosts){
+                        nBoosts++;
+                    }
+                }
+                let boostLabs = targetLabs.splice(0,nBoosts);
+                
+                /*if(room.name == 'W17N4'){
+                    console.log(nBoosts + ' labs ' + boostLabs);
+                    console.log('Source ' + sourceLabs);
+                    console.log('target ' + targetLabs);
+                }*/
                 
                 this._labs = {};
                 this._labs.source = sourceLabs.map((l) => l.id);
                 this._labs.target = targetLabs.map((l) => l.id);
+                this._labs.boost = boostLabs.map((l) => l.id);
             }
         }
         return this._labs;
@@ -260,6 +236,118 @@ Object.defineProperty(roomObjectContainer.prototype, 'dropped', {
     },
     enumerable: false,
     configurabel: true
+});
+
+Object.defineProperty(roomObjectContainer.prototype, 'dmgStructures', {
+    get: function(){
+        if(this === roomObjectContainer.prototype || this == undefined){return}
+        if(!this._dmgStructures){
+            if(defStructHits[this.roomName] == undefined){
+                let room = Game.rooms[this.roomName];
+                if(room && room.controller && room.controller.my){
+                    console.log('No hits defined for defensive structures in room ' + this.name + '. Using default of 30K hits');
+                    defStructHits[this.roomName] = {walls: 30000, ramparts: 30000};
+                }
+                else{defStructHits[this.roomName] = {walls: 1, ramparts: 1}}
+            }
+
+            if(!Memory.rooms[this.roomName].dmgStructures){
+                Memory.rooms[this.roomName].dmgStructures = [];
+            }
+            //Search for structures to be repaired
+            //1st remove completely repaired structures from list
+            //Also remove structures that no longer exist
+            Memory.rooms[this.roomName].dmgStructures = _.filter(Memory.rooms[this.roomName].dmgStructures, (id) => {
+                let structure = Game.getObjectById(id);
+                if(structure == undefined){
+                    return false;
+                }
+                if(structure.owner && !structure.my){return false}        
+                let hitFrac = 1.0;
+                if(structure.structureType == STRUCTURE_WALL){
+                    hitFrac *= defStructHits[this.roomName].walls/structure.hitsMax;
+                }
+                else if(structure.structureType == STRUCTURE_RAMPART){
+                    hitFrac *= defStructHits[this.roomName].ramparts/structure.hitsMax;
+                }
+                return structure.hits < hitFrac * structure.hitsMax;            
+            });
+
+            //Find all structures which have hits below the treshold
+            let damagedStructures = [];
+            for(let structureType in this.structures){
+                damagedStructures = damagedStructures.concat(this.structures[structureType].filter((id) => {
+                    let structure = Game.getObjectById(id);
+                    if(!structure){return false}
+                    if(structure.owner && !structure.my){return false}
+                    let hitFrac = 1/2;
+                    if(structure.structureType == STRUCTURE_WALL){
+                        hitFrac *= 2*defStructHits[this.roomName].walls/structure.hitsMax;
+                    }
+                    else if(structure.structureType == STRUCTURE_RAMPART){
+                        hitFrac *= 2*0.9*defStructHits[this.roomName].ramparts/structure.hitsMax;
+                    }
+                    return structure.hits < hitFrac * structure.hitsMax;            
+                }));
+            }
+            
+            damagedStructures = util.getArrayObjectsById(damagedStructures);
+            let dismantleStructures = undefined;
+            if(dismantle[this.roomName]){
+                dismantleStructures = util.getArrayObjectsById(dismantle[this.roomName].ids);
+            }
+            else {dismantleStructures = []}
+            damagedStructures = util.findArrayOfDifferentElements(damagedStructures,dismantleStructures);
+
+            for(let i=0; i<damagedStructures.length; i++){
+                let match = false;
+                for(let j=0; j<Memory.rooms[this.roomName].dmgStructures.length && !match; j++){
+                    match = damagedStructures[i].id == Memory.rooms[this.roomName].dmgStructures[j];
+                }
+                if(!match){
+                    //New repair
+                    Memory.rooms[this.roomName].dmgStructures.push(damagedStructures[i].id);
+                }
+            }
+
+            this._dmgStructures = Memory.rooms[this.roomName].dmgStructures;
+        }
+        return this._dmgStructures;
+    },
+    set: function(value){
+        this._dmgStructures = value;
+    },
+    enumerable: false,
+    configurable: true
+});
+
+Object.defineProperty(roomObjectContainer.prototype, 'criticalRepairs', {
+    get: function(){
+        if(this === roomObjectContainer.prototype || this == undefined){return}
+        if(!this._criticalRepairs){
+            if(!Memory.rooms[this.roomName].criticalRepairs){
+                Memory.rooms[this.roomName].criticalRepairs = [];
+            }
+            Memory.rooms[this.roomName].criticalRepairs = this.dmgStructures.filter((st) => {
+                let structure = Game.getObjectById(st);
+                let hitFrac = 0.1;
+                if(structure.structureType == STRUCTURE_WALL){
+                    hitFrac *= defStructHits[this.roomName].walls/structure.hitsMax;
+                }
+                else if(structure.structureType == STRUCTURE_RAMPART){
+                    hitFrac *= defStructHits[this.roomName].ramparts/structure.hitsMax;
+                }
+                return structure.hits < hitFrac * structure.hitsMax;        
+            });
+            this._criticalRepairs = Memory.rooms[this.roomName].criticalRepairs;
+        }
+        return this._criticalRepairs;
+    },
+    set: function(value){
+        this._criticalRepairs = value;
+    },
+    enumerable: false,
+    configurable: true
 });
 
 module.exports = roomObjectContainer;

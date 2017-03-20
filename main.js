@@ -3,6 +3,7 @@ global.util = new Utilities();
 require('Global.variables');
 require('Global.constants');
 require('Creep');
+require('Creep.properties');
 global.roomObjectContainer = require('roomObjectContainer');
 require('Room.properties');
 require('Room.checks');
@@ -10,8 +11,11 @@ require('Room.build');
 require('Link');
 require('Spawn');
 require('Lab');
+require('Structures.properties');
+//require('Game.properties');
 require('Room.spawnQueue');
 require('Room.creepsToSpawn');
+require('Storagecontents');
 
 var trade = require('Market');
 
@@ -27,6 +31,7 @@ module.exports.loop = function () {
     
     profiler.wrap(function() {
         for(let name in Game.rooms) {
+            //let st = Game.cpu.getUsed();
             try {
                 let room = Game.rooms[name];
                 room.check();
@@ -51,16 +56,28 @@ module.exports.loop = function () {
             catch(err){
                 console.log('Error while creating boosts in room ' + name);
                 console.log(err);
-            }            
+            }
+            /*let used = Game.cpu.getUsed() - st;
+            if(used > 2){
+                console.log(name + ' cpu ', used);
+            }*/
         }
         
-        //If number of creeps in memory is wrong use this to recount creeps
-        /*try {
-            util.countCreeps();
+        for(let name in Game.rooms) {
+            //let st = Game.cpu.getUsed();
+            try {
+                let room = Game.rooms[name];
+                room.checkCreepsToSpawn();
+            }
+            catch(err){
+                console.log('Error while determining number of creeps to spawn');
+                console.log(err);
+            }
+            /*let used = Game.cpu.getUsed() - st;
+            if(used > 2){
+                console.log(name + ' cpu ', used);
+            }*/
         }
-        catch(err) {
-            console.log(err);
-        }*/
         
         for(let name in Memory.creeps) {
             if(!Game.creeps[name]) {
@@ -77,8 +94,13 @@ module.exports.loop = function () {
         
         for(let name in Game.spawns){
             try {
+                //let st = Game.cpu.getUsed();                
                 let spawn = Game.spawns[name];
                 spawn.run();
+                /*let used = Game.cpu.getUsed() - st;
+                if(used > 1){
+                    console.log(name + ' cpu ', used);
+                }*/
             }
             catch(err){
                 console.log('Error while spanwing with spawn ' + name + ' in room ' + Game.spawns[name].room.name);
@@ -86,15 +108,46 @@ module.exports.loop = function () {
             }
         }
         
+        //console.log('Spawns ' + Game.cpu.getUsed());
+        
         for(let name in Game.creeps) {
             try {
-                Game.creeps[name].animate();
+                Game.creeps[name].setCostInMatrix();
             }
-            catch (err){
-                console.log('An error occured with ' + Game.creeps[name].memory.role + ' ' + name);
+            catch(err){
+                console.log('Error while setting creep costs in costMatrix for creep ' + name + ' in room ' + Game.creeps[name].room.name);
                 console.log(err);
             }
         }
+        
+        global.RedoCreeps = [];
+        for(let name in Game.creeps) {
+            try {
+                //let st = Game.cpu.getUsed();
+                Game.creeps[name].animate();
+                /*let used = Game.cpu.getUsed() - st;
+                if(used > 2){
+                    console.log(name + ' cpu ', used);
+                }*/
+            }
+            catch (err){
+                console.log('An error occured with ' + Game.creeps[name].memory.role + ' ' + name + ' in room ' + Game.creeps[name].room.name);
+                console.log(err);
+            }
+        }
+        if(RedoCreeps.length){
+            for(let i=0; i<RedoCreeps.length; i++){
+                try {
+                    RedoCreeps[i].animate();
+                }
+                catch(err){
+                    console.log('An error occured during redo of ' + RedoCreeps[i].memory.role + ' ' + RedoCreeps[i].name + ' in room ' + RedoCreeps[i].room.name);
+                    console.log(err);
+                }
+            }
+        }
+        
+        //console.log('Creeps ' + Game.cpu.getUsed());
         
         for(let name in Game.rooms) {
             try {
@@ -105,23 +158,17 @@ module.exports.loop = function () {
                 console.log('Error while building structures in room ' + name);
                 console.log(err);
             }
-            try {
+            /*try {
                 let room = Game.rooms[name];
                 room.populateSpawnQueue();
             }
             catch(err) {
                 console.log('Error while filling spawn queue');
                 console.log(err);
-            }
-            try {
-                let room = Game.rooms[name];
-                room.checkCreepsToSpawn();
-            }
-            catch(err){
-                console.log('Error while determining number of creeps to spawn');
-                console.log(err);
-            }
+            }*/
         }
+        
+        //console.log('Build & nSpawn ' + Game.cpu.getUsed());
         
         try {
             let merchant = new trade();
@@ -131,6 +178,8 @@ module.exports.loop = function () {
             console.log('Error while trading');
             console.log(err);
         }
+        
+        //console.log('Market ' + Game.cpu.getUsed());
     
         if(Memory.cpu){
             if(Game.time%2000 == 0){
@@ -153,10 +202,37 @@ module.exports.loop = function () {
         }
         
         try {
+            let currentSeconds = Date.now() / 1000;
+            let previousSeconds = Memory.previousSeconds || currentSeconds;
+            let tickLength = currentSeconds - previousSeconds;
             
+            if (Memory.averageTickLength == undefined) {
+                Memory.averageTickLength = tickLength;
+            }
+            if (Memory.averageTickLengthCounter == undefined || Memory.averageTickLengthCounter > 10000) {
+                Memory.averageTickLengthCounter = 1;
+            }
+            let multiplied = Memory.averageTickLength * Memory.averageTickLengthCounter;
+            let newMultiplied = multiplied + tickLength;
+            Memory.averageTickLengthCounter = Memory.averageTickLengthCounter + 1;
+            Memory.averageTickLength = newMultiplied / Memory.averageTickLengthCounter;
+            
+            Memory.previousSeconds = currentSeconds;
+        }
+        catch(err){
+            console.log('Error in tick length counting');
+            console.log(err);
+        }
+        
+        try {
+            //console.log('B4');
+            //console.log(JSON.stringify(util.targOfCreeps));
         }
         catch(err){
             console.log('Error in test script');
+            console.log(err);
         }
+        
+        //console.log('Test ' + Game.cpu.getUsed());
     });
 }
