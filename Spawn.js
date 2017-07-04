@@ -9,15 +9,17 @@ Spawn.prototype.run = function(){
     }
     //console.log('Spawn checked ' + this.name);
     this.roles = {settler: undefined, defender: undefined, explorer: undefined, adventurer: undefined};
-    this.roles.settler = ['harvester','filler','transporter','courier','labWorker','repairer','builder','upgrader','melee','miner'];
+    this.roles.settler = ['harvester','sender','filler','transporter','courier','labWorker','repairer','builder','upgrader','melee','miner'];
     this.roles.defender = ['combat','repairer'];
     this.roles.rescuer = ['combat'];
     this.roles.explorer = ['melee','harvester','reserver','transporter','repairer','builder','upgrader','dismantler'];
     this.roles.adventurer = ['hybrid','ranged','patroller','patrollerRanged','melee','harvester','transporter','repairer','builder','miner'];
     this.roles.starter = ['reserver','startUp','harvester','transporter','repairer','builder','upgrader','dismantler','combat'];
     this.roles.attacker = ['drainer','dismantler','healer','dismantler2','healer2','reserver'];
+    this.roles.powerHarvester = ['attacker','healer','transporter'];
     this.spawnCreep('defender');
     this.spawnCreep('attacker');
+    this.spawnCreep('powerHarvester');
     this.spawnCreep('settler',true);
     this.spawnCreep('rescuer');
     this.spawnCreep('explorer',true);
@@ -63,7 +65,7 @@ Spawn.prototype.spawnCreep = function(creepType,essential){
     if(essential == undefined){essential = false}     
     
     let maxCost = this.room.energyCapacityAvailable;
-    let avEnergy = this.room.energyAvailable;
+    let avEnergy = Math.min(this.room.energyAvailable,maxCost); //If extensions are inactive avEnergy can be higher than maxCost -> limit
      
     let body = undefined;
     if(!creepBodies || !creepBodies[this.room.name] || !creepBodies[this.room.name][creepType] || !creepBodies[this.room.name][creepType][needSpawn.role]){
@@ -84,8 +86,19 @@ Spawn.prototype.spawnCreep = function(creepType,essential){
     if(essential && bodyCost > avEnergy){
         //Spawn best creep you can with available energy
         let nTransporters = undefined;
-        if(this.room.memory.creeps && this.room.memory.creeps['settler']){nTransporters = this.room.memory.creeps['settler']['filler']}
-        if((!nTransporters && avEnergy >= SPAWN_ENERGY_START) || (nTransporters && avEnergy == maxCost)){
+        let nSenders = undefined;
+        if(this.room.memory.creeps && this.room.memory.creeps['settler']){
+            nTransporters = this.room.memory.creeps['settler']['filler']  + this.room.memory.creeps['settler']['courier'];
+            nSenders = this.room.memory.creeps['settler']['sender'];
+            let stLinks = util.gatherObjectsInArray(this.room.links,'storage');
+            if(!stLinks.length){nSenders = 0}
+        }
+        if(this.room.name == "W27N11"){
+            //console.log(nTransporters + ", " + nSenders + ", " + avEnergy);
+            //console.log((((transitioned[this.room.name] && !nSenders) || !nTransporters) && avEnergy) >= SPAWN_ENERGY_START);
+            
+        }
+        if(((((transitioned[this.room.name] && !nSenders) || !nTransporters) && avEnergy) >= SPAWN_ENERGY_START) || (((transitioned[this.room.name] && nSenders) || !transitioned[this.room.name]) && nTransporters && avEnergy == maxCost)){
             //Spawns and extensions won't be filled by transporters and energy won't regenerate OR spawns will be filled but bodyCost is higher than maxCost
             body = this.reduceBody(body,avEnergy)             
         }
@@ -109,7 +122,11 @@ Spawn.prototype.needSpawn = function(creepType){
             //No creeps of this type yet
             nCreep[i] = 0;
         }
-        needSpawn = needSpawn || nCreep[i] < creepsToSpawn[this.room.name][creepType][this.roles[creepType][i]];
+        let need = 0;
+        if(creepsToSpawn[this.room.name] && creepsToSpawn[this.room.name][creepType] && creepsToSpawn[this.room.name][creepType][this.roles[creepType][i]]){
+            need += creepsToSpawn[this.room.name][creepType][this.roles[creepType][i]];
+        }
+        needSpawn = needSpawn || nCreep[i] < need;
         /*if(this.room.name == 'W15N8'){
             //console.log(this.name + ' ' + creepType + ' ' + this.roles[creepType][i] + ' need: ' + creepsToSpawn[this.room.name][creepType][this.roles[creepType][i]] + ' have ' + nCreep[i]);
             //console.log(nCreep[i] < creepsToSpawn[this.room.name][creepType][this.roles[creepType][i]], ' ', needSpawn);

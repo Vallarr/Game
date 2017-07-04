@@ -8,7 +8,13 @@ Room.prototype.checkCreepsToSpawn = function(){
         for(let role in creepsToSpawn[this.name][type]){
             if(creepsToSpawn[this.name][type][role] && creepsToSpawn[this.name][type][role] < 0){
                 let targetRooms;
-                if(remoteRooms == undefined || remoteRooms[type] == undefined){
+                if(type == 'powerHarvester'){
+                    targetRooms = [];
+                    if(this.memory.powerRooms){
+                        Object.keys(this.memory.powerRooms).forEach((r) => targetRooms.push(r));
+                    }
+                }
+                else if(remoteRooms == undefined || remoteRooms[type] == undefined){
                     targetRooms = [this.name];
                 }
                 else if(remoteRooms[type][this.name] == undefined || !remoteRooms[type][this.name].length){
@@ -18,7 +24,7 @@ Room.prototype.checkCreepsToSpawn = function(){
                 else {
                     targetRooms = remoteRooms[type][this.name];
                 }
-                let temp = this.calcCreepsToSpawn[role](targetRooms,this.name,type);
+                let temp = calcCreepsToSpawn[role](targetRooms,this.name,type);
                 //console.log('Set creepsToSpawn of type ' + type + ' and role ' + role + ' to ' + temp + ' in room ' + this.name);
                 creepsToSpawn[this.name][type][role] = temp;
                 //creepsToSpawn[this.name][type][role] = this.calcCreepsToSpawn[role](targetRooms);
@@ -27,7 +33,7 @@ Room.prototype.checkCreepsToSpawn = function(){
     }
 };
 
-Room.prototype.calcCreepsToSpawn = {
+calcCreepsToSpawn = {
     //Determine number of creeps to spawn
     //Should take into account not to strain the spawn to much
     'harvester': function(targetRooms){
@@ -59,8 +65,32 @@ Room.prototype.calcCreepsToSpawn = {
         //Spawn haulers based in number of sources and distance to sources
         
     },
-    'transporter': function(targetRooms){
-        //Spawn transporters based on energy comming into room -> will do filler tasks if own tasks are done
+    'transporter': function(targetRooms,orRoom,type){
+        if(type == 'powerHarvester'){
+            let nTrans = 0;
+            let origin = Game.rooms[orRoom];
+            if(!Memory.power || !Memory.power.harvest){
+                return 0;
+            }
+            for(let i=0; i<targetRooms.length; i++){
+                let d = origin.nonLinearDistance(targetRooms[i]);
+                let hits = origin.memory.powerRooms[targetRooms[i]].hits;
+                let power = origin.memory.powerRooms[targetRooms[i]].power;
+                let dmg = ATTACK_POWER * 24;
+                let carry = CARRY_CAPACITY * 25;
+                let nNeeded = Math.ceil(power/carry);
+                //console.log('hits ' + hits + ' dmg ' + dmg + ' d ' + d + ' needed ' + nNeeded + ' test1 ' + hits/dmg + ' test2 ' + (100 + 50 * d + MAX_CREEP_SIZE * CREEP_SPAWN_TIME * Math.floor(nNeeded/3)));
+                if(hits/dmg < 100 + 50 * d + MAX_CREEP_SIZE * CREEP_SPAWN_TIME * Math.floor(nNeeded/3)){
+                    //Compensate for number of trips the transporters can make. Max 2 trips to keep power loss to a minimum
+                    nTrips = Math.min(Math.floor((CREEP_LIFE_TIME - 100 - MAX_CREEP_SIZE * CREEP_SPAWN_TIME * Math.floor(nNeeded/3)) / (2 * 50 * d)),2);
+                    nTrans += Math.ceil(nNeeded / nTrips);
+                }
+            }
+            //console.log('Spawning ' + nTrans + ' transporters for ' + orRoom);
+            if(nTrans == 0){nTrans = -1}
+            return nTrans;
+        }
+        return 0;
     },
     'filler': function(targetRooms){
         //Spawn based on energy going into spawns and extensions -> will do part of transporter tasks if own tasks are done
@@ -81,7 +111,14 @@ Room.prototype.calcCreepsToSpawn = {
         let percOnSwamp = 0.5; //Assumption (calculating this per room will take to much time)
         let repairerEfficiency = 0.5; //Assumption that repairer is only actively repairing 50% of the time
         let nVis = 0;
-        let damage = util.gatherObjectsInArray(origin.structures,STRUCTURE_SPAWN).length * CREEP_LIFE_TIME / CREEP_SPAWN_TIME * ROAD_DECAY_AMOUNT / ROAD_DECAY_TIME * (1 + percOnSwamp * (CONSTRUCTION_COST_ROAD_SWAMP_RATIO - 1)); //Damage from creeps walking on roads
+        let nSpawn;
+        if(GCL_FARM[orRoom]){
+            nSpawn = util.gatherObjectsInArray(origin.structures,STRUCTURE_SPAWN).filter((s) => s.isActive()).length;
+        }
+        else {
+            nSpawn = util.gatherObjectsInArray(origin.structures,STRUCTURE_SPAWN).length;
+        }
+        let damage = nSpawn * CREEP_LIFE_TIME / CREEP_SPAWN_TIME * ROAD_DECAY_AMOUNT / ROAD_DECAY_TIME * (1 + percOnSwamp * (CONSTRUCTION_COST_ROAD_SWAMP_RATIO - 1)); //Damage from creeps walking on roads
         //console.log(orRoom + ' base damage from walking creeps ' + damage);
         for(let i=0; i<targetRooms.length; i++){
             let room = Game.rooms[targetRooms[i]];
@@ -111,7 +148,7 @@ Room.prototype.calcCreepsToSpawn = {
         let maxWork = Math.min(Math.floor(origin.energyCapacityAvailable / (BODYPART_COST[WORK] + BODYPART_COST[CARRY] + BODYPART_COST[MOVE])),Math.floor(MAX_CREEP_SIZE/3));
         let nRep = Math.ceil(nWork / maxWork);
         let nWorkPerCreep = Math.ceil(nWork / nRep);
-        let body = util.generateBody({[CARRY]: nWorkPerCreep, [WORK]: nWorkPerCreep, [MOVE]: nWorkPerCreep});
+        let body = util.generateBody({[CARRY]: nWorkPerCreep, [WORK]: nWorkPerCreep, [MOVE]: nWorkPerCreep}, "alternate");
         if(!creepBodies[orRoom]){
             creepBodies[orRoom] = {[type]: {'repairer': body}};
         }
@@ -129,7 +166,7 @@ Room.prototype.calcCreepsToSpawn = {
         
     },
     'upgrader': function(targetRooms,orRoom,type){
-        //Spawn based on RCL and energy in storage (if build) (or on energy coming in and going out)
+        //TODO: Spawn based on RCL and energy in storage (if build) (or on energy coming in and going out)
         let nUpgrader = 0;
         for(let i=0; i<targetRooms.length; i++){
             let room = Game.rooms[targetRooms[i]];
@@ -139,16 +176,21 @@ Room.prototype.calcCreepsToSpawn = {
         if(targetRooms.length == 1 && targetRooms[0] == orRoom){
             //Creep in origin room
             let origin = Game.rooms[orRoom];
-            if(origin.controller.level == 8 && origin.mineralsInRoom[RESOURCE_CATALYZED_GHODIUM_ACID] > 0){
-                let boost = {[WORK]: RESOURCE_CATALYZED_GHODIUM_ACID};
-                if(!addCreepMemory[orRoom]){
-                    addCreepMemory[orRoom] = {[type]: {'upgrader': {'boost': boost}}};
-                }
-                else if(!addCreepMemory[orRoom][type]){
-                    addCreepMemory[orRoom][type] = {'upgrader': {'boost': boost}};
-                }
-                else {
-                    addCreepMemory[orRoom][type]['upgrader'] = {'boost': boost};
+            if(origin.controller.level == 8){
+                if(!creepBodies[orRoom]){creepBodies[orRoom] = {}}
+                if(!creepBodies[orRoom][type]){creepBodies[orRoom][type] = {}}
+                creepBodies[orRoom][type]['upgrader'] = [MOVE,MOVE,MOVE,WORK,WORK,WORK,MOVE,WORK,WORK,CARRY,MOVE,WORK,WORK,WORK,WORK,WORK,CARRY,MOVE,WORK,WORK,WORK,MOVE,WORK,WORK,CARRY,MOVE];
+                if(origin.mineralsInRoom[RESOURCE_CATALYZED_GHODIUM_ACID] > 0){
+                    let boost = {[WORK]: RESOURCE_CATALYZED_GHODIUM_ACID};
+                    if(!addCreepMemory[orRoom]){
+                        addCreepMemory[orRoom] = {[type]: {'upgrader': {'boost': boost}}};
+                    }
+                    else if(!addCreepMemory[orRoom][type]){
+                        addCreepMemory[orRoom][type] = {'upgrader': {'boost': boost}};
+                    }
+                    else {
+                        addCreepMemory[orRoom][type]['upgrader'] = {'boost': boost};
+                    }
                 }
             }
         }
@@ -159,7 +201,7 @@ Room.prototype.calcCreepsToSpawn = {
         let nMiners = 0;
         for(let i=0; i<targetRooms.length; i++){
             let room = Game.rooms[targetRooms[i]];
-            if(room && room.mineral){
+            if(room && room.mineral && (!room.controller || room.controller && room.controller.my && room.controller.level >= 6)){
                 let mines = room.mineral;
                 for(let j=0; j<mines.length; j++){
                     if(mines[j].mineralAmount > 0){
@@ -228,6 +270,35 @@ Room.prototype.calcCreepsToSpawn = {
         return 0;
     },
     'drainer': function(targetRooms){
+        return 0;
+    },
+    'attacker': function(targetRooms,orRoom,type){
+        if(type == 'powerHarvester'){
+            let nAttackers = 0;
+            let origin = Game.rooms[orRoom];
+            if(!Memory.power || !Memory.power.harvest){
+                return 0;
+            }
+            for(let i=0; i<targetRooms.length; i++){
+                let d = origin.nonLinearDistance(targetRooms[i]);
+                let ttd = origin.memory.powerRooms[targetRooms[i]].ticksToDecay;
+                let hits = origin.memory.powerRooms[targetRooms[i]].hits;
+                let dmg = ATTACK_POWER * 24;
+                //console.log('hits ' + hits + ' dmg ' + dmg + ' d ' + d + ' test ' + hits/dmg / (CREEP_LIFE_TIME - 50 * d) * CREEP_LIFE_TIME);
+                if(hits/dmg / (CREEP_LIFE_TIME - 50 * d) * CREEP_LIFE_TIME < ttd){
+                    nAttackers++;
+                }
+            }
+            //console.log('Spawning ' + nAttackers + ' attackers for ' + orRoom);
+            if(nAttackers == 0){nAttackers = -1}
+            return nAttackers;
+        }
+        return 0;
+    },
+    'healer': function(targetRooms,orRoom,type){
+        if(type == 'powerHarvester'){
+            return 2 * calcCreepsToSpawn['attacker'](targetRooms,orRoom,type);
+        }
         return 0;
     }
 };

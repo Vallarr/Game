@@ -37,6 +37,12 @@ Room.prototype.build = function(){
                 if(struct.structureType == STRUCTURE_RAMPART){
                     lookStruct = this.lookForAt(LOOK_STRUCTURES,struct.pos.x[i],struct.pos.y[i]).filter((structure) => {return structure.structureType == STRUCTURE_RAMPART});
                 }
+                else if(struct.structureType == STRUCTURE_ROAD){
+                    lookStruct = this.lookForAt(LOOK_STRUCTURES,struct.pos.x[i],struct.pos.y[i]).filter((structure) => {return structure.structureType != STRUCTURE_RAMPART && structure.structureType != STRUCTURE_CONTAINER});
+                }
+                else if(struct.structureType == STRUCTURE_CONTAINER){
+                    lookStruct = this.lookForAt(LOOK_STRUCTURES,struct.pos.x[i],struct.pos.y[i]).filter((structure) => {return structure.structureType != STRUCTURE_RAMPART && structure.structureType != STRUCTURE_ROAD});
+                }
                 else {
                     lookStruct = this.lookForAt(LOOK_STRUCTURES,struct.pos.x[i],struct.pos.y[i]).filter((structure) => {return structure.structureType != STRUCTURE_RAMPART});
                 }

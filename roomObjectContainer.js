@@ -114,10 +114,15 @@ Object.defineProperty(roomObjectContainer.prototype, 'containers', {
                 let spawnContainers = util.targetsInRange(containers,spawns,3);
                 containers = util.findArrayOfDifferentElements(containers,spawnContainers);
                 
-                
-                this._containers.source = sourceContainers.concat(containers).map((c) => c.id);
+                if(transitioned[this.roomName]){
+                    this._containers.source = sourceContainers.map((c) => c.id);
+                    this._containers.spawn = spawnContainers.concat(containers).map((c) => c.id);
+                }
+                else {
+                    this._containers.source = sourceContainers.concat(containers).map((c) => c.id);
+                    this._containers.spawn = spawnContainers.map((c) => c.id);
+                }
                 this._containers.mineral = mineralContainers.map((c) => c.id);
-                this._containers.spawn = spawnContainers.map((c) => c.id);
                 this._containers.upgrader = upgraderContainers.map((c) => c.id);
             }
             if(room.storage){this._containers.storage = [room.storage.id]}
@@ -144,25 +149,35 @@ Object.defineProperty(roomObjectContainer.prototype, 'links', {
             if(links){
                 links = links.filter((l) => l.my);
                 let sourceLinks = util.targetsInRange(links,sources,2);
+                links = util.findArrayOfDifferentElements(links,sourceLinks);
                 let storageLinks;
                 if(room.storage){
-                    storageLinks = util.targetsInRange(links,[room.storage],1);
+                    let targets = [room.storage];
+                    if(room.terminal){targets.push(room.terminal)}
+                    storageLinks = util.targetsInRange(links,targets,1);
                 }
                 else {storageLinks = []}
+                links = util.findArrayOfDifferentElements(links,storageLinks);
                 let upgraderLinks;
                 if(room.controller){
                     upgraderLinks = util.targetsInRange(links,[room.controller],2);
                 }
                 else {upgraderLinks = []}
-                links = util.findArrayOfDifferentElements(links,sourceLinks.concat(storageLinks,upgraderLinks));
+                links = util.findArrayOfDifferentElements(links,upgraderLinks);
                 let spawnLinks = util.targetsInRange(links,spawns,3);
                 links = util.findArrayOfDifferentElements(links,spawnLinks);
                 
                 this._links = {};
-                this._links.source = sourceLinks.concat(links).map((l) => l.id);
+                if(transitioned[this.roomName]){
+                    this._links.source = sourceLinks.map((l) => l.id);
+                    this._links.spawn = spawnLinks.concat(links).map((l) => l.id);
+                }
+                else {
+                    this._links.source = sourceLinks.concat(links).map((l) => l.id);
+                    this._links.spawn = spawnLinks.map((l) => l.id);
+                }
                 this._links.storage = storageLinks.map((l) => l.id);
                 this._links.upgrader = upgraderLinks.map((l) => l.id);
-                this._links.spawn = spawnLinks.map((l) => l.id);
             }
         }
         return this._links;
@@ -262,13 +277,19 @@ Object.defineProperty(roomObjectContainer.prototype, 'dmgStructures', {
                 if(structure == undefined){
                     return false;
                 }
+                if(GCL_FARM[this.roomName] && !structure.isActive()){return false}
                 if(structure.owner && !structure.my){return false}        
                 let hitFrac = 1.0;
                 if(structure.structureType == STRUCTURE_WALL){
                     hitFrac *= defStructHits[this.roomName].walls/structure.hitsMax;
                 }
                 else if(structure.structureType == STRUCTURE_RAMPART){
-                    hitFrac *= defStructHits[this.roomName].ramparts/structure.hitsMax;
+                    if(rampartHits[this.roomName] && rampartHits[this.roomName][structure.id]){
+                        hitFrac *= Math.min(rampartHits[this.roomName][structure.id],structure.hitsMax)/structure.hitsMax;
+                    }
+                    else {
+                        hitFrac *= Math.min(defStructHits[this.roomName].ramparts,structure.hitsMax)/structure.hitsMax;
+                    }
                 }
                 return structure.hits < hitFrac * structure.hitsMax;            
             });
@@ -279,13 +300,19 @@ Object.defineProperty(roomObjectContainer.prototype, 'dmgStructures', {
                 damagedStructures = damagedStructures.concat(this.structures[structureType].filter((id) => {
                     let structure = Game.getObjectById(id);
                     if(!structure){return false}
+                    if(GCL_FARM[this.roomName] && !structure.isActive()){return false}
                     if(structure.owner && !structure.my){return false}
                     let hitFrac = 1/2;
                     if(structure.structureType == STRUCTURE_WALL){
                         hitFrac *= 2*defStructHits[this.roomName].walls/structure.hitsMax;
                     }
                     else if(structure.structureType == STRUCTURE_RAMPART){
-                        hitFrac *= 2*0.9*defStructHits[this.roomName].ramparts/structure.hitsMax;
+                        if(rampartHits[this.roomName] && rampartHits[this.roomName][structure.id]){
+                            hitFrac *= 2*0.9*Math.min(rampartHits[this.roomName][structure.id],structure.hitsMax)/structure.hitsMax;
+                        }
+                        else {
+                            hitFrac *= 2*0.9*Math.min(defStructHits[this.roomName].ramparts,structure.hitsMax)/structure.hitsMax;
+                        }
                     }
                     return structure.hits < hitFrac * structure.hitsMax;            
                 }));
@@ -298,7 +325,7 @@ Object.defineProperty(roomObjectContainer.prototype, 'dmgStructures', {
             }
             else {dismantleStructures = []}
             damagedStructures = util.findArrayOfDifferentElements(damagedStructures,dismantleStructures);
-
+            
             for(let i=0; i<damagedStructures.length; i++){
                 let match = false;
                 for(let j=0; j<Memory.rooms[this.roomName].dmgStructures.length && !match; j++){
@@ -309,7 +336,6 @@ Object.defineProperty(roomObjectContainer.prototype, 'dmgStructures', {
                     Memory.rooms[this.roomName].dmgStructures.push(damagedStructures[i].id);
                 }
             }
-
             this._dmgStructures = Memory.rooms[this.roomName].dmgStructures;
         }
         return this._dmgStructures;

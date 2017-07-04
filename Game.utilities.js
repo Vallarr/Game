@@ -274,12 +274,25 @@ Util.prototype.countBodyParts = function(hostiles){
     return hostileTypes;
 };
 
-Util.prototype.generateBody = function(bp){
+Util.prototype.generateBody = function(bp,opt){
     let body = [];
-    
-    for(let part in bp){
-        for(let i=0; i< bp[part]; i++){
-            body.push(part);
+    if(opt == "alternate"){
+        let nParts = _.sum(bp);
+        while(nParts > 0){
+            for(let part in bp){
+                if(bp[part] > 0){
+                    body.push(part);
+                    bp[part]--;
+                    nParts--;
+                }
+            }
+        }
+    }
+    else {
+        for(let part in bp){
+            for(let i=0; i< bp[part]; i++){
+                body.push(part);
+            }
         }
     }
     return body;
@@ -371,6 +384,99 @@ Util.prototype.deserializeCostMatrix = function(serial){
     return costMatrix;
 };
 
+Util.prototype.serializePath = function(path){
+    //Serialize an array of RoomPosition objects
+    let serial = '';
+    let roomSerial = '';
+    let roomName;
+    let nInRoom = 0;
+    for(let i=0; i<path.length; i++){
+        if(roomName && path[i].roomName !== roomName){
+            roomSerial = (roomName + 'xxxx').slice(0,6) + ('0000' + nInRoom).slice(-4) + roomSerial;
+            serial += roomSerial;
+            roomName = path[i].roomName;
+            roomSerial = '';
+        }
+        else if(!roomName){roomName = path[i].roomName}
+        nInRoom++;
+        roomSerial += ('00' + path[i].x).slice(-2) + ('00' + path[i].y).slice(-2);
+    }
+    serial += (roomName + 'xxxx').slice(0,6) + ('0000' + nInRoom).slice(-4) + roomSerial;
+    return serial;
+};
+
+Util.prototype.deserializePath = function(serial){
+    let path = [];
+    if(!serial || !serial.length){return path}
+    
+    let maxIt = Math.ceil(serial.length / 14);
+    let end = false;
+    let ind = 0;
+    let it = 0;
+    let roomName;
+    let nInRoom;
+    let x;
+    let y;
+    while(!end && it<maxIt){
+        it++;
+        roomName = serial.slice(ind,ind+=6).replace('x','');
+        nInRoom = Number(serial.slice(ind,ind+=4));
+        for(let i=0; i<nInRoom; i++){
+            x = Number(serial.slice(ind,ind+=2));
+            y = Number(serial.slice(ind,ind+=2));
+            path.push(new RoomPosition(x,y,roomName));
+        }
+        end = ind == serial.length;
+    }
+    return path;
+};
+
+Util.prototype.deserializeNextStep = function(serial){
+    //Deserialize and remove next step from serial;
+    let roomName = serial.slice(0,6).replace('x','');
+    let nInRoom = Number(serial.slice(6,10));
+    let x = Number(serial.slice(10,12));
+    let y = Number(serial.slice(12,14));
+    nInRoom--;
+    if(nInRoom > 0){
+        serial = (roomName + 'xxxx').slice(0,6) + ('0000' + nInRoom).slice(-4) + serial.slice(14);
+    }
+    else {
+        serial = serial.slice(14);
+    }
+    return {step: new RoomPosition(x,y,roomName), path: serial};
+};
+
+Util.prototype.addStepToSerializedPath = function(step,serial){
+    let maxIt = Math.ceil(serial.length/14);
+    let it = 0;
+    let ind = 0;
+    let indLastRoom;
+    let roomName;
+    let nInRoom;
+    let end = false;
+    while(!end && it<maxIt){
+        it++;
+        indLastRoom = ind;
+        roomName = serial.slice(ind,ind+=6).replace('x','');
+        nInRoom = Number(serial.slice(ind,ind+=4));
+        ind+= nInRoom * 4;
+        end = ind == serial.length;
+    }
+    if(!end){
+        return ERR_INVALID_ARGS;
+    }
+    if(roomName === step.roomName){
+        //serial += ('00' + step.x).slice(-2) + ('00' + step.y).slice(-2);
+        nInRoom++;
+        serial = serial.slice(0,indLastRoom) + (roomName + 'xxxx').slice(0,6) + ('0000' + nInRoom).slice(-4) + serial.slice(indLastRoom+10) + ('00' + step.x).slice(-2) + ('00' + step.y).slice(-2);
+    }
+    else {
+        serial += (roomName + 'xxxx').slice(0,6) + '0001' + ('00' + step.x).slice(-2) + ('00' + step.y).slice(-2);
+    }
+    return serial;
+};
+
 Util.prototype.targetsOfCreeps = function(nameInMem,f,room){
     let targets = [];
     if(nameInMem == undefined){
@@ -423,86 +529,7 @@ Util.prototype.targetsInRange = function(references, targets, range) {
     return inRange;
 };
 
-RoomPosition.prototype.closestByRange = function(targets, cutOffRange){
-    //Find target closest to this position based on linear distance
-    //This search can span multiple rooms
-    if(targets == undefined || !Array.isArray(targets) || !targets.length){
-        return null;
-    }
-    
-    let closest = undefined;
-    let closestRange = undefined;
-    let distance = undefined;
-    let range = undefined;
-    for(let i=0; i<targets.length; i++){
-        if(this.roomName == targets[i].pos.roomName){
-            distance = Math.sqrt(Math.pow(this.x - targets[i].pos.x,2) + Math.pow(this.y - targets[i].pos.y,2));
-            if(cutOffRange != undefined){
-                range = Math.max(Math.abs(this.x - targets[i].pos.x),Math.abs(this.y - targets[i].pos.y));
-                if(range <= cutOffRange){
-                    return targets[i];
-                }
-            }            
-        }
-        else {
-            let fromRoom = this.coordinatesFromRoomName();
-            let toRoom = targets[i].pos.coordinatesFromRoomName;
-            let horRoomDev = undefined;
-            let vertRoomDev = undefined;
-            if(fromRoom.horDir == toRoom.horDir){
-                horRoomDev = toRoom.horCoord - fromRoom.horCoord;
-                if(fromRoom.horDir == 'W') {horRoomDev*=-1}
-            }
-            else {
-                horRoomDev = toRoom.horCoord + fromRoom.horCoord + 1;
-                if(fromRoom.horDir == 'E') {horRoomDev*=-1}
-            }
-            if(fromRoom.vertDir == toRoom.vertDir){
-                vertRoomDev = toRoom.vertCoord - fromRoom.vertCoord;
-                if(fromRoom.vertDir == 'N') {vertRoomDev*=-1}
-            }
-            else {
-                vertRoomDev = toRoom.vertCoord + fromRoom.vertCoord + 1;
-                if(fromRoom.vertDir == 'S') {vertRoomDev*=-1}
-            }      
-            //Not linear distance but sum of difference in 2 coordinates. This is used to penalize movement between rooms.
-            distance = Math.abs(targets[i].pos.x - this.x + horRoomDev * 50) + Math.abs(targets[i].pos.y - this.y + vertRoomDev * 50);
-        }
-        if(!closestRange || distance < closestRange){
-            closestRange = distance;
-            closest = targets[i];                
-        }
-    }
-    return closest;
-};
 
-RoomPosition.prototype.coordinatesFromRoomName = function(){
-    let room = this.roomName.split('');
-    let horDir = undefined;
-    let vertDir = undefined;
-    let horCoord = '';
-    let vertCoord = '';
-    for(let i=0; i<room.length; i++){
-        let temp = Number(room[i]);
-        if(Number.isNaN(temp)){
-            if(!horDir){
-                horDir = room[i];
-            }
-            else {
-                vertDir = room[i];
-            }
-        }
-        else{
-            if(vertDir){
-                vertCoord += room[i];
-            }
-            else if(horDir){
-                horCoord += room[i];
-            }
-        }
-    }
-    return {'horDir':horDir, 'vertDir': vertDir, 'horCoord': Number(horCoord), 'vertCoord': Number(vertCoord)};
-};
 
 Util.prototype.coordinatesFromRoomName = function(roomName){
     let room = roomName.split('');
@@ -566,6 +593,24 @@ Util.prototype.findClosestRoomByRange = function(start,targets){
     }
     //console.log('Closest to  ' + start + ' is ' + closestRoom);
     return closestRoom;
+};
+
+Util.prototype.findClosestPairOfRooms = function(rooms1,rooms2){
+    //Find pair of rooms (1 from rooms1 and 1 from rooms2) that are closest to each other
+    let distance;
+    let closest;
+    let closestPair = [];
+    for(let i=0; i<rooms1.length; i++){
+        for(let j=0; j<rooms2.length; j++){
+            distance = Game.map.getRoomLinearDistance(rooms1[i].name,rooms2[j].name,true);
+            if(!closest || distance < closest){
+                closestPair[0] = rooms1[i];
+                closestPair[1] = rooms2[j];
+                closest = distance;
+            }
+        }
+    }
+    return closestPair;
 };
 
 Util.prototype.classifyCreeps = function(creeps){
@@ -643,9 +688,10 @@ Util.prototype.classifyRamparts = function(ramparts,creeps){
 Object.defineProperty(Util.prototype, 'targOfCreeps', {
     get: function(){
         if(this == Util.prototype || this == undefined){return}
-        if(!this._targetsOfCreeps){
+        if(!this._targetsOfCreeps || !this.lastTick || this.lastTick != Game.time){
+            this.lastTick = Game.time;
             this._targetsOfCreeps = {};
-            let possibleTargets = ['targetContainer','getDropped','controller','source','mineralSource','targetRoom','controllerRoom','sourceRoom','mineRoom','starterRoom'];
+            let possibleTargets = ['targetContainer','getDropped','controller','source','mineralSource','targetRoom','controllerRoom','sourceRoom','mineRoom','starterRoom','powerRoom','getPowerRoom'];
             for(let name in Game.creeps){
                 let creep = Game.creeps[name];
                 for(let i=0; i<possibleTargets.length; i++){
@@ -670,64 +716,6 @@ Object.defineProperty(Util.prototype, 'targOfCreeps', {
     },
     set: function(value){
         this._targetsOfCreeps = value;
-    },
-    enumerable: false,
-    configurable: true
-});
-
-RoomPosition.prototype.towerPower = function(basePower,towers){
-    let power = 0;
-    if(basePower == undefined){
-        return power;
-    }
-    if(towers == undefined){
-        let room = Game.rooms[this.roomName];
-        if(!room){
-            return power;
-        }
-        towers = util.gatherObjectsInArray(room.structures,STRUCTURE_TOWER);
-    }
-    else if(!Array.isArray(towers)){
-        return ERR_INVALID_ARGS;
-    }
-    
-    for(let i=0; i<towers.length; i++){
-        let range = this.getRangeTo(towers[i].pos);
-        //console.log('Range from ' + this + ' to ' + towers[i] + ' is ' + range);
-        if(range <= TOWER_OPTIMAL_RANGE){
-            //console.log('Close damage');
-            power += basePower;
-        }
-        else if(range >= TOWER_FALLOFF_RANGE){
-            //console.log('Far damage');
-            power += basePower * (1 - TOWER_FALLOFF);
-        }
-        else {
-            //console.log('Intermediate damage ' + TOWER_POWER_ATTACK * (1 - TOWER_FALLOFF * (range - TOWER_OPTIMAL_RANGE) / (TOWER_FALLOFF_RANGE - TOWER_OPTIMAL_RANGE)));
-            power += basePower * (1 - TOWER_FALLOFF * (range - TOWER_OPTIMAL_RANGE) / (TOWER_FALLOFF_RANGE - TOWER_OPTIMAL_RANGE));
-        }
-    }
-    return power;
-};
-
-RoomPosition.prototype.towerDamage = function(towers){
-    return this.towerPower(TOWER_POWER_ATTACK,towers);
-};
-
-RoomPosition.prototype.towerHeal = function(towers){
-    return this.towerPower(TOWER_POWER_HEAL,towers);
-};
-
-Object.defineProperty(RoomPosition.prototype, 'onExit', {
-    get: function(){
-        if(this === RoomPosition.prototype || this == undefined){return}
-        if(!this._onExit){
-            this._onExit = this.x == 0 || this.x == 49 || this.y == 0 || this.y == 49;
-        }
-        return this._onExit;
-    },
-    set: function(value){
-        this._onExit = value;
     },
     enumerable: false,
     configurable: true

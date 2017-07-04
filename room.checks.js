@@ -1,6 +1,17 @@
 Room.prototype.check = function(){
     this.initialize();
     this.defend();
+    if(GCL_FARM[this.name]){
+        let ordered = 0;
+        if(this.memory.orders && this.memory.orders[RESOURCE_ENERGY]){
+            ordered = this.memory.orders[RESOURCE_ENERGY];
+        }
+        if(this.terminal && this.terminal.isActive() && this.terminal.store[RESOURCE_ENERGY] + ordered < GCL_FARM_TERMINAL_FILL.low && _.sum(this.terminal.store) < MAX_STORE_TERMINAL){
+            if(!this.memory.orders){this.memory.orders = {}}
+            if(!this.memory.orders[RESOURCE_ENERGY]){this.memory.orders[RESOURCE_ENERGY] = 0}
+            this.memory.orders[RESOURCE_ENERGY] += GCL_FARM_TERMINAL_FILL.high - ordered - this.terminal.store[RESOURCE_ENERGY];
+        }
+    }
 };
 
 Room.prototype.defend = function(){
@@ -31,6 +42,8 @@ Room.prototype.defend = function(){
     if(this.memory.defense.underAttack && hostiles.length == 0) {
         //console.log('All enemies in room ' + this.name + ' have been defeated. (Game tick ' + Game.time + ')');
         this.memory.defense.underAttack = false;
+        delete this.memory.defense.hopeLess;
+        delete this.memory.defense.splitHealerAttack;
     }
     
     if(this.memory.defense.underAttack && this.controller && this.controller.owner && this.controller.my) {
@@ -49,12 +62,15 @@ Room.prototype.defend = function(){
             //Assume towers are inside walls
             reference = towers[0];
         }
-        else if (this.structures[STRUCTURE_SPAWN]){
-            //Spawn must always be inside walls
-            reference = this.structures[STRUCTURE_SPAWN][0];
-        }
         else {
-            reference = this.controller;
+            spawns = util.gatherObjectsInArray(this.structures,STRUCTURE_SPAWN);
+            if(spawns.length){
+                //Spawn must always be inside walls
+                reference = spawns[0];
+            }
+            else {
+                reference = this.controller;
+            }
         }
         
         let res = PathFinder.search(reference.pos,goals, 
@@ -81,6 +97,10 @@ Room.prototype.defend = function(){
         }            
         
         //Attack with towers
+        if(this.memory.defense.hopeLess && Game.time%ROOM_RESET_TIMER == 0){
+            this.memory.defense.hopeLess = false;
+            this.memory.defense.splitHealerAttack = false;
+        }
         towers = towers.filter((tow) => {return tow.energy >= 10});
         if(towers.length){
             //Tower heal code
@@ -103,73 +123,68 @@ Room.prototype.defend = function(){
             //Towers which do not need to heal can continue with attacks
             //Check if there are creeps which can get more damage from towers, then they can heal or get healed by creeps within range <=3 of it.
             //Attack creep in this category which can take most net damage, i.e. towerDamage - possible heal
-            let loneHostile = undefined;
-            let maxDamage = 0;
-            for(let i=0; i<hostiles.length; i++){
-                let healCapacity = 0;
-                let hostilesInRange = util.targetsInRange(hostiles,[hostiles[i]],3);
-                for(let j=0; j<hostilesInRange.length; j++){
-                    hostilesInRange[j].assessThreat();
-                    healCapacity += hostilesInRange[j].threat[HEAL];
-                }
-                let netDamage = undefined;
-                if(hostiles[i].getActiveBodyparts(TOUGH)){
-                    netDamage = hostiles[i].pos.towerDamage(towers) - healCapacity / CREEP_BODY_HITS * hostiles[i].threat[TOUGH] / hostiles[i].getActiveBodyparts(TOUGH) - DEFENSE_DAMAGE_SURPLUS;
-                }
-                else {
-                    netDamage = hostiles[i].pos.towerDamage(towers) - healCapacity - DEFENSE_DAMAGE_SURPLUS;
-                }
-                if(netDamage > maxDamage){
-                    loneHostile = hostiles[i];
-                    maxDamage = netDamage;
-                }
-            }
+            let loneHostile = getLoneHostile(hostiles,towers,true);
             if(loneHostile){
                 for(let i=0; i<towers.length; i++){
                     towers[i].attack(loneHostile);
                 }
             }
             else {
-                //If no such creeps exist, there is more heal capacity in room than towers can do damage (or creeps are still to far away)
-                //Towers will each target a separate healer (in hopes healers heal themselves before healing others)
-                //If there are less healers than towers, spare towers can attack non-healer creeps
-                let healers = util.gatherObjectsInArray(this.creeps.hostiles,'heal','meleeHeal','rangedHeal','hybrid');
-                let combatCreeps = util.gatherObjectsInArray(this.creeps.hostiles,'melee','ranged','meleeRanged','claim','hybrid');
-                if(healers.length > towers.length){
-                    console.log('To much healing power');
-                    //Do nothing untill defender arrives
-                    //Determine hostile creep which can take most damage. Towers + attack + ranged attack (do this in 1st check)
-                    //Creep which can take most surplus damage is attacked by all within range
-                }
-                else {
-                    let combatMostDmg = undefined;
-                    let healerMostDmg = undefined;
+                loneHostile = getLoneHostile(hostiles,towers,false);
+                if(loneHostile){
                     for(let i=0; i<towers.length; i++){
-                        let closestHealer = towers[i].pos.findClosestByRange(healers);
-                        if(closestHealer){
-                            towers[i].attack(closestHealer);
-                            healers = util.findArrayOfDifferentElements(healers,[closestHealer]);
-                            console.log('Attack healer ' + closestHealer);
-                        }
-                        else if(combatCreeps.length){
-                            //All leftover towers attack creep which can take most damage
-                            if(!combatMostDmg){
-                                combatMostDmg = mostTowerDamage(combatCreeps,towers.slice(i));
-                            }
-                            towers[i].attack(combatMostDmg);
-                            console.log('Attack combat ' + combatMostDmg);
-                        }
-                        else if(healers.length){
-                            //Attack healer which can take most damage
-                            if(!healerMostDmg){
-                                healerMostDmg = mostTowerDamage(healers,towers.slice(i));
-                            }
-                            towers[i].attack(healerMostDmg);
-                            console.log('Attack healer ' + healerMostDmg);
-                        }
+                        towers[i].attack(loneHostile);
                     }
                 }
-                
+                else {
+                    if(this.memory.defense.splitHealerAttack){
+                        this.memory.defense.hopeLess = true;
+                        this.memory.defense.splitHealerAttack = false;
+                    }
+                    if(!this.memory.defense.hopeLess){
+                        //If no such creeps exist, there is more heal capacity in room than towers can do damage (or creeps are still to far away)
+                        //Towers will each target a separate healer (in hopes healers heal themselves before healing others)
+                        //If there are less healers than towers, spare towers can attack non-healer creeps
+                        let healers = util.gatherObjectsInArray(this.creeps.hostiles,'heal','meleeHeal','rangedHeal','hybrid');
+                        let combatCreeps = util.gatherObjectsInArray(this.creeps.hostiles,'melee','ranged','meleeRanged','claim');
+                        if(healers.length > towers.length){
+                            this.memory.defense.hopeLess = true;
+                            //console.log('To much healing power');
+                            //Do nothing untill defender arrives
+                            //Determine hostile creep which can take most damage. Towers + attack + ranged attack (do this in 1st check)
+                            //Creep which can take most surplus damage is attacked by all within range
+                        }
+                        else {
+                            this.memory.defense.splitHealerAttack = true;
+                            let combatMostDmg;
+                            let healerMostDmg;
+                            for(let i=0; i<towers.length; i++){
+                                let closestHealer = towers[i].pos.findClosestByRange(healers);
+                                if(closestHealer){
+                                    towers[i].attack(closestHealer);
+                                    healers = util.findArrayOfDifferentElements(healers,[closestHealer]);
+                                    //console.log('Attack healer ' + closestHealer);
+                                }
+                                else if(combatCreeps.length){
+                                    //All leftover towers attack creep which can take most damage
+                                    if(!combatMostDmg){
+                                        combatMostDmg = mostTowerDamage(combatCreeps,towers.slice(i));
+                                    }
+                                    towers[i].attack(combatMostDmg);
+                                    //console.log('Attack combat ' + combatMostDmg);
+                                }
+                                else if(healers.length){
+                                    //Attack healer which can take most damage
+                                    if(!healerMostDmg){
+                                        healerMostDmg = mostTowerDamage(healers,towers.slice(i));
+                                    }
+                                    towers[i].attack(healerMostDmg);
+                                    //console.log('Attack healer ' + healerMostDmg);
+                                }
+                            }
+                        }                    
+                    }
+                }
             }
         }
     }
@@ -237,6 +252,51 @@ Room.prototype.defend = function(){
         }
         return healingTowers;
     }
+    
+    function getLoneHostile(hostiles,towers,allHealers){
+        let loneHostile;
+        let maxDamage = 0;
+        let error;
+        for(let i=0; i<hostiles.length; i++){
+            let netDamage;
+            try {
+                let potHeal = allHealers ? hostiles[i].potentialHeal : hostiles[i].potentialHealNoDamage;
+                let potDmg = hostiles[i].pos.towerDamage(towers); //Will become hostiles[i].pos.potentialDamage;
+                let toughHits = hostiles[i].hits - (hostiles[i].toughHealth - hostiles[i].toughness);
+                if(potDmg > hostiles[i].toughness){
+                    netDamage = potDmg - hostiles[i].toughness - potHeal + toughHits;
+                }
+                else {
+                    netDamage = potDmg * toughHits / hostiles[i].toughness - potHeal;
+                }
+            }
+            catch(err){
+                console.log("Error defending " + err);
+                console.log(err.stack);
+                error = err.stack;
+                let healCapacity = 0;
+                let hostilesInRange = util.targetsInRange(hostiles,[hostiles[i]],3);
+                for(let j=0; j<hostilesInRange.length; j++){
+                    hostilesInRange[j].assessThreat();
+                    healCapacity += hostilesInRange[j].threat[HEAL];
+                }
+                if(hostiles[i].getActiveBodyparts(TOUGH)){
+                    netDamage = hostiles[i].pos.towerDamage(towers) - healCapacity / CREEP_BODY_HITS * hostiles[i].threat[TOUGH] / hostiles[i].getActiveBodyparts(TOUGH) - DEFENSE_DAMAGE_SURPLUS;
+                }
+                else {
+                    netDamage = hostiles[i].pos.towerDamage(towers) - healCapacity - DEFENSE_DAMAGE_SURPLUS;
+                }
+            }
+            if(netDamage > maxDamage){
+                loneHostile = hostiles[i];
+                maxDamage = netDamage;
+            }
+        }
+        if(error){
+            Game.notify(error,60);
+        }
+        return loneHostile;
+    }
 };
 
 Room.prototype.createDefenders = function(){
@@ -263,7 +323,7 @@ Room.prototype.createDefenders = function(){
         let nAttackPerCreep = Math.min(Math.floor(this.energyCapacityAvailable / (BODYPART_COST[ATTACK] + BODYPART_COST[MOVE]/2)),DEFENSE_MAX_NUMBER_ATTACK);;
         let nMovePerCreep = Math.ceil(nAttackPerCreep / 2); 
         if(nAttackPerCreep + nMovePerCreep > MAX_CREEP_SIZE){nAttackPerCreep -= nAttackPerCreep + nMovePerCreep - MAX_CREEP_SIZE}
-        let body = util.generateBody({[MOVE]: nMovePerCreep, [ATTACK]: nAttackPerCreep});
+        let body = util.generateBody({[ATTACK]: nAttackPerCreep, [MOVE]: nMovePerCreep});
         if(nAttack > nAttackPerCreep && maxBoosts > 0){
             nAttack += Math.min(nAttack/BOOSTS[ATTACK][RESOURCE_CATALYZED_UTRIUM_ACID].attack,maxBoosts) - Math.min(nAttack,maxBoosts * BOOSTS[ATTACK][RESOURCE_CATALYZED_UTRIUM_ACID].attack);
         }

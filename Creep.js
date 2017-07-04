@@ -2,7 +2,7 @@ require('Creep.roles');
 require('Creep.actions');
 
 Creep.prototype.setCostInMatrix = function(){
-    if(this.fatigue || (this.memory.path && !this.memory.path.length)){
+    if(this.fatigue || (this.memory.path && !this.memory.path.length) || !this.memory.path){
         //If creep is not moving, set its position as unwalkable
         this.room.CostMatrix.set(this.pos.x,this.pos.y,0xff);
         this.room.CombatCostMatrix.set(this.pos.x,this.pos.y,0xff);
@@ -16,8 +16,14 @@ Creep.prototype.animate = function(){
     //else if(this.moveFromMemory()){return}
     if(this.moveFromMemory()){return}
     if(this.memory.boost && this.applyBoosts()){return} //Go get boosted
+    if(this.memory.portal && this.usePortal()){return}
     
-    if(remoteRooms == undefined || remoteRooms[this.memory.type] == undefined){
+    if(this.memory.type == 'powerHarvester'){
+        this.targetRooms = [];
+        let orRoom = Game.rooms[this.memory.origin];
+        Object.keys(orRoom.memory.powerRooms).forEach((r) => this.targetRooms.push(r));
+    }
+    else if(remoteRooms == undefined || remoteRooms[this.memory.type] == undefined){
         this.targetRooms = [this.memory.origin];
     }
     else if(remoteRooms[this.memory.type][this.memory.origin] == undefined || !remoteRooms[this.memory.type][this.memory.origin].length){
@@ -27,25 +33,54 @@ Creep.prototype.animate = function(){
     else {
         this.targetRooms = remoteRooms[this.memory.type][this.memory.origin];
     }
-
+    
     if(this.memory.role == 'harvester') {
         this.creepHarvest();
     }
     if(this.memory.role == 'miner'){
         this.creepMiner();
     }
+    if(this.memory.role == 'sender'){
+        this.creepSender();
+    }
     if(this.memory.role == 'transporter' || this.memory.role == 'filler' || this.memory.role == 'courier' || this.memory.role == 'labWorker'){
         if(this.memory.type == 'settler'){
-            this.creepDedicatedTransporter();
+            if(transitioned[this.memory.origin]){
+                if(this.memory.role == 'filler'){
+                    this.creepFillerv2();
+                }
+                else if(this.memory.role == 'courier'){
+                    this.creepCourierv2();
+                }
+                else {
+                    this.creepDedicatedTransporter();
+                }
+            }
+            else {
+                this.creepDedicatedTransporter();
+            }
         }
         else if(this.memory.type == 'explorer'){
-            this.creepExplorerTransporter();
+            if(transitioned[this.memory.origin]){
+                this.creepTransporter();
+            }
+            else {
+                this.creepExplorerTransporter();
+            }
         }
         else if(this.memory.type == 'adventurer'){
-            this.creepExplorerTransporter();
+            if(transitioned[this.memory.origin]){
+                this.creepTransporter();
+            }
+            else {
+                this.creepExplorerTransporter();
+            }
         }
-        else if(this.memory.type = 'starter'){
+        else if(this.memory.type == 'starter'){
             this.creepStarterTransporter();
+        }
+        else if(this.memory.type == 'powerHarvester'){
+            this.creepPowerTransporter();
         }
     }
     if(this.memory.role == 'upgrader') {
@@ -106,9 +141,12 @@ Creep.prototype.animate = function(){
         this.creepDrainer();
     }
     if(this.memory.role == 'healer' || this.memory.role == 'healer2'){
-        if(this.memory.type == 'attacker'){
+        if(this.memory.type == 'attacker' || this.memory.type == 'powerHarvester'){
             this.creepAttackHealer();
         }
+    }
+    if(this.memory.role == 'attacker' && this.memory.type == 'powerHarvester'){
+        this.creepPowerAttacker();
     }
 };
 
@@ -133,14 +171,22 @@ Creep.prototype.moveFromMemory = function(){
         for(let i=0; i<followers.length; i++){
             //Wait for fatigued followers
             if(followers[i].fatigue){
+                //console.log(this.name + ' waiting for fatigued followers');
                 this.stationaryCombat();
+                this.room.CostMatrix.set(this.pos.x,this.pos.y,0xff);
+                this.room.CombatCostMatrix.set(this.pos.x,this.pos.y,0xff);
                 return true;
             }
         }
-        let inRange = util.targetsInRange(followers,[this],1);
-        if(inRange.length < followers.length && !this.pos.onExit){
+        let inRange = util.targetsInRange(followers,[this],followers.length);
+        let inRange1 = util.targetsInRange(followers,[this],1);
+        //console.log('In range 1 ' + inRange1 + ' in range ' + inRange);
+        if((!inRange1.length || inRange.length < followers.length) && !this.pos.onExit && !this.pos.nextToExit){
             //Wait for followers to get in range
+            //console.log(this.name + ' waiting for out of range followers ' + inRange1.length + ' in 1 ' + inRange.length + ' total');
             this.stationaryCombat();
+            this.room.CostMatrix.set(this.pos.x,this.pos.y,0xff);
+            this.room.CombatCostMatrix.set(this.pos.x,this.pos.y,0xff);
             return true;
         }
     }
@@ -178,6 +224,12 @@ Creep.prototype.moveFromMemory = function(){
             //console.log(this.name + ' got position ' + nextPos + ' from leader memory');
         }
         if(nextPos){
+            if(this.pos.onExit){
+                if(nextPos.x == 1){nextPos.x++}
+                else if(nextPos.x == 48){nextPos.x--}
+                else if(nextPos.y == 1){nextPos.y++}
+                else if(nextPos.y == 48){nextPos.y--}
+            }
             this.moveTo([{pos: nextPos}],1);
             this.stationaryCombat();
             return true;
@@ -191,6 +243,7 @@ Creep.prototype.moveFromMemory = function(){
         }
         else if(this.pos.onExit){
             //Move healer away from border into room
+            //console.log(this.name + ' on border');
             if(leader.pos.x == 48){nextPos = new RoomPosition(leader.pos.x-1,leader.pos.y,leader.pos.roomName)}
             else if(leader.pos.x == 1){nextPos = new RoomPosition(leader.pos.x+1,leader.pos.y,leader.pos.roomName)}
             else if(leader.pos.y == 48){nextPos = new RoomPosition(leader.pos.x,leader.pos.y-1,leader.pos.roomName)}
@@ -255,6 +308,10 @@ Creep.prototype.prepareBoosts = function(){
 Creep.prototype.applyBoosts = function(){
     let nBoosts = 0;
     let boostLabs = util.gatherObjectsInArray(this.room.labs,'boost');
+    if(!boostLabs.length){
+        delete this.memory.boost;
+        return false;
+    }
     let targetLab;
     let targetPart;
     let foundLab = false;
@@ -293,7 +350,7 @@ Creep.prototype.applyBoosts = function(){
             return true;
         }
     }
-    if(targetLab.mineralAmount >= this.getActiveBodyparts(targetPart) * LAB_BOOST_MINERAL || this.room.mineralsInRoom[this.memory.boost[targetPart]] == targetLab.mineralAmount){
+    if(targetLab.mineralAmount >= this.getActiveBodyparts(targetPart) * LAB_BOOST_MINERAL || this.room.mineralsInRoom[this.memory.boost[targetPart]] == targetLab.mineralAmount && !(this.room.mineralsInRoom[this.memory.boost[targetPart]] < LAB_BOOST_MINERAL)){
         let nPartToBoost;
         if(this.room.mineralsInRoom[this.memory.boost[targetPart]] == targetLab.mineralAmount){
             nPartToBoost = Math.min(this.getActiveBodyparts(targetPart),Math.floor(targetLab.mineralAmount / LAB_BOOST_MINERAL));
@@ -319,6 +376,46 @@ Creep.prototype.applyBoosts = function(){
             return true;
         }
     }
+    else if(this.room.mineralsInRoom[this.memory.boost[targetPart]] < LAB_BOOST_MINERAL){
+        delete this.memory.boost[targetPart];
+        return false;
+    }
+    if(this.ticksToLive < 0.7 * CREEP_LIFE_TIME){
+        delete this.memory.boost;
+        return false;
+    }
     //console.log('Did not get boosted yet ');
+    return true;
+};
+
+Creep.prototype.usePortal = function(){
+    if(this.memory.destinationRoom && this.room.name == this.memory.destinationRoom){
+        let portals = util.gatherObjectsInArray(this.room.structures,STRUCTURE_PORTAL);
+        this.flee(portals,1);
+        delete this.memory.destinationRoom;
+        delete this.memory.portal;
+    }
+    let portalRoom = this.memory.portal;
+    let room = Game.rooms[portalRoom];
+    if(!room){
+        this.moveToRoom(portalRoom);
+        return true;
+    }
+    let portals = util.gatherObjectsInArray(room.structures,STRUCTURE_PORTAL);
+    if(!portals.length){
+        delete this.memory.portal;
+        return false;
+    }
+    let portal = this.moveTo(portals,1);
+    if(portal != OK && portal != ERR_NOT_FOUND){
+        if(this.move(this.pos.getDirectionTo(portal)) == OK){
+            this.memory.destinationRoom = portal.destination.roomName;
+        }
+        return true;
+    }
+    else if(portal == ERR_NOT_FOUND){
+        delete this.memory.portal;
+        return false;
+    }
     return true;
 };

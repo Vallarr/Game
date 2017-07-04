@@ -302,7 +302,10 @@ global.customSend = function(roomName, targetRoom, resource, amount){
         Memory.market.transfer = {};
     }
     if(!Memory.market.transfer[roomName]){
-        Memory.market.transfer[roomName] = {amount: amount, to: targetRoom, resourceType: resource};
+        Memory.market.transfer[roomName] = [{amount: amount, to: targetRoom, resourceType: resource}];
+    }
+    else {
+        Memory.market.transfer[roomName].push({amount: amount, to: targetRoom, resourceType: resource});
     }
 };
 
@@ -314,7 +317,10 @@ global.customDeal = function(roomName, amount, id){
         Memory.market.deals = {};
     }
     if(!Memory.market.deals[roomName]){
-        Memory.market.deals[roomName] = {amount: amount, id: id};
+        Memory.market.deals[roomName] = [{amount: amount, id: id}];
+    }
+    else {
+        Memory.market.deals[roomName].push({amount: amount, id: id});
     }
 };
 
@@ -327,7 +333,7 @@ global.customDeal = function(roomName, amount, id){
 global.showRoomSelectOptions = function (excludeRoom) {
     function sendCostPercentage(fromRoomName, toRoomName) {
         let dist = Game.map.getRoomLinearDistance(fromRoomName, toRoomName);
-        return Math.log(0.1 * dist + 0.9);
+        return 1 - Math.exp(-dist / 30);
     }
     function maxSendableAmount(fromRoomName, toRoomName) {
         return Math.floor(Game.rooms[fromRoomName].terminal.store.energy / sendCostPercentage(fromRoomName, toRoomName));
@@ -335,13 +341,13 @@ global.showRoomSelectOptions = function (excludeRoom) {
     let outstr = `<option value="custom">Enter target room</option>`;
     let ownRooms = _.filter(Game.rooms, r => r.name != excludeRoom && r.controller && r.controller.my && r.terminal);
     ownRooms.forEach(r => {
-        outstr += `<option value="${r.name}">${r.name} | ${maxSendableAmount(excludeRoom, r.name).toLocaleString()}</option>`;
+        outstr += `<option value="${r.name}">${r.name} | ${sendCostPercentage(excludeRoom, r.name).toLocaleString().slice(0,5)}</option>`;
     });
     if (favoriteTerminalTargets) {
         outstr += `<optgroup label="Favorites">`;
         favoriteTerminalTargets.forEach(r => {
             let [favorite, comment] = r.split("_");
-            outstr += `<option value="${favorite}">${favorite}${comment ? `  |  ${comment}` : ``} | ${maxSendableAmount(excludeRoom, favorite).toLocaleString()}</option>`;
+            outstr += `<option value="${favorite}">${favorite}${comment ? `  |  ${comment}` : ``} | ${sendCostPercentage(excludeRoom, favorite).toLocaleString().slice(0,5)}</option>`;
         });
         outstr += '</optgroup>';
     }

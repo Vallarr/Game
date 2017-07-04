@@ -1,5 +1,7 @@
 var Utilities = require('Game.utilities');
 global.util = new Utilities();
+require('RoomVisuals');
+require('RoomPosition.properties');
 require('Global.variables');
 require('Global.constants');
 require('Creep');
@@ -16,11 +18,14 @@ require('Structures.properties');
 require('Room.spawnQueue');
 require('Room.creepsToSpawn');
 require('Storagecontents');
+require('RoomPlanner');
+require('Observe');
+require('Power');
 
 var trade = require('Market');
 
 const profiler = require('screeps.profiler');
-profiler.enable();
+//profiler.enable();
 
 module.exports.loop = function () {
     /*console.log('Loading scripts took ' + Game.cpu.getUsed() + ' cpu units');
@@ -28,7 +33,8 @@ module.exports.loop = function () {
     var startCpu = Game.cpu.getUsed();
     JSON.parse(stringified);
     console.log('CPU spent on Memory parsing:', Game.cpu.getUsed() - startCpu);*/
-    
+
+
     profiler.wrap(function() {
         for(let name in Game.rooms) {
             //let st = Game.cpu.getUsed();
@@ -117,6 +123,7 @@ module.exports.loop = function () {
             catch(err){
                 console.log('Error while setting creep costs in costMatrix for creep ' + name + ' in room ' + Game.creeps[name].room.name);
                 console.log(err);
+                console.log(err.stack);
             }
         }
         
@@ -133,6 +140,7 @@ module.exports.loop = function () {
             catch (err){
                 console.log('An error occured with ' + Game.creeps[name].memory.role + ' ' + name + ' in room ' + Game.creeps[name].room.name);
                 console.log(err);
+                console.log(err.stack);
             }
         }
         if(RedoCreeps.length){
@@ -150,12 +158,35 @@ module.exports.loop = function () {
         //console.log('Creeps ' + Game.cpu.getUsed());
         
         for(let name in Game.rooms) {
+            let room = Game.rooms[name];
             try {
-                let room = Game.rooms[name];
                 room.build();
             }
             catch(err){
                 console.log('Error while building structures in room ' + name);
+                console.log(err);
+            }
+            try {
+                if(room.memory.plan && room.memory.plan.drawing){
+                    room.visual.drawRoomPlan();
+                }
+            }
+            catch(err) {
+                console.log('Error with room visuals of ' + name);
+                console.log(err);
+            }
+            try {
+                room.observe();
+            }
+            catch(err){
+                console.log('Error while observing rooms in ' + name);
+                console.log(err);
+            }
+            try {
+                room.handlePower();
+            }
+            catch(err){
+                console.log('Error while handling power in ' + name);
                 console.log(err);
             }
             /*try {
@@ -169,13 +200,19 @@ module.exports.loop = function () {
         }
         
         //console.log('Build & nSpawn ' + Game.cpu.getUsed());
-        
+        let merchant = new trade();
         try {
-            let merchant = new trade();
             merchant.trade();
         }
         catch(err){
             console.log('Error while trading');
+            console.log(err);
+        }
+        try {
+            merchant.balanceRooms();
+        }
+        catch(err){
+            console.log('Error while balancing rooms');
             console.log(err);
         }
         
@@ -225,8 +262,27 @@ module.exports.loop = function () {
         }
         
         try {
-            //console.log('B4');
-            //console.log(JSON.stringify(util.targOfCreeps));
+            //let room = Game.rooms['W14N7'];
+            //room.visual.drawRoomPlan();
+            /*let room = Game.rooms['W15N8'];
+            let path = room.findExtPath();
+            if(path !== ERR_NOT_FOUND){
+                room.visual.drawPath(path);
+            }*/
+            /*console.log('path ' + path);
+            let st = Game.cpu.getUsed();
+            let serial = util.serializePath(path);
+            let used = Game.cpu.getUsed() - st;
+            console.log('Serial ' + serial + ' ', used);
+            let deserial = util.deserializePath(serial);
+            let used2 = Game.cpu.getUsed() - st - used;
+            console.log('Deserial ' + deserial + ' ', used2);
+            let nextStep = util.deserializeNextStep(serial);
+            let used3 = Game.cpu.getUsed() - st - used - used2;
+            console.log('Next step ' + nextStep.step + ' serial ' + nextStep.path + ' ' + used3);
+            let newSerial = util.addStepToSerializedPath(nextStep.step,nextStep.path);
+            let used4 = Game.cpu.getUsed() - st - used - used2 - used3;
+            console.log('Serial ' + newSerial + ' ' + used4);*/
         }
         catch(err){
             console.log('Error in test script');

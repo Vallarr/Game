@@ -278,6 +278,31 @@ Object.defineProperty(Room.prototype, 'CombatCostMatrix', {
     configurable: true
 });
 
+Object.defineProperty(Room.prototype, 'UpgraderCostMatrix', {
+    get: function(){
+        if(this === Room.prototype || this == undefined){return}
+        if(!this._UpgraderCostMatrix){
+            this._UpgraderCostMatrix = this.CostMatrix.clone();
+            if(this.storage && this.terminal){
+                for(let i=-1; i<2; i++){
+                    for(let j=-1; j<2; j++){
+                        let pos = new RoomPosition(this.storage.pos.x+i,this.storage.pos.y+j,this.name);
+                        if(this.terminal.pos.inRangeTo(pos,1)){
+                            this._UpgraderCostMatrix.set(pos.x,pos.y,0xff);
+                        }
+                    }
+                }
+            }
+        }
+        return this._UpgraderCostMatrix;
+    },
+    set: function(value){
+        this._UpgraderCostMatrix = value;
+    },
+    enumerable: false,
+    configurable: true
+});
+
 Object.defineProperty(Room.prototype, 'hasActiveOrders', {
     //Property which tells whether there are still active order
     get: function(){
@@ -431,7 +456,7 @@ Room.prototype.availableResources = function(options){
     //Search for containers/links/dropped etc which still contain resources that have not been targeted
     if(options == undefined){
         //If not specified: will get energy from anywhere
-        options = {resourceType: RESOURCE_ENERGY, storage: true, terminal: true, dropped: true, containers: ['source','spawn','upgrader','mineral'], links: ['storage','source','upgrader','spawn']};
+        options = {resourceType: RESOURCE_ENERGY, storage: true, terminal: true, dropped: true, containers: ['source','spawn','upgrader','mineral'], links: ['storage','source','upgrader','spawn'], labs: ['source','target','boost']};
     }
     else if(!options.resourceType){
         //default resource is energy
@@ -442,24 +467,39 @@ Room.prototype.availableResources = function(options){
         options.amount = 1;
     }
     let resourceType;
-    if(options.resourceType != 'any'){
+    if(options.resourceType != RESOURCE_ANY){
         resourceType = options.resourceType;
     }
     
     let available = [];
     
+    if(options.terminal && this.terminal && resourceType && ((GCL_FARM[this.name] && resourceType == RESOURCE_ENERGY && this.terminal.store[RESOURCE_ENERGY] >= options.amount) || (this.memory.orders && this.memory.orders[resourceType] <= -options.amount && this.terminal.available[resourceType] >= options.amount))){
+        available.push(this.terminal);
+    }
+
     if(options.storage && this.storage && ((resourceType && this.storage.available[resourceType] >= options.amount) || (!resourceType && _.sum(this.storage.available) >= options.amount))){
         available.push(this.storage);
     }
     
-    if(options.terminal && this.terminal && (resourceType && this.memory.orders[resourceType] >= options.amount)){
-        available.push(this.terminal);
+    if(options.links){
+        let links = [];
+        for(let i=0; i<options.links.length; i++){
+            Array.prototype.push.apply(links,util.gatherObjectsInArray(this.links,options.links[i]));
+            //links = links.concat(util.gatherObjectsInArray(this.links,options.links[i]));
+        }
+        let linkAmount = Math.pow((1-LINK_LOSS_RATIO),4) * LINK_CAPACITY;
+        for(let i=0; i<links.length; i++){
+            if((resourceType && links[i].available[resourceType] >= Math.min(linkAmount,options.amount)) || (!resourceType && _.sum(links[i].available) >= Math.min(linkAmount,options.amount))){
+                available.push(links[i]);
+            }
+        }
     }
     
     if(options.containers){
         let containers = [];
         for(let i=0; i<options.containers.length; i++){
-            containers = container.concat(util.gatherObjectsInArray(this.containers,options.containers[i]));
+            Array.prototype.push.apply(containers,util.gatherObjectsInArray(this.containers,options.containers[i]));
+            //containers = containers.concat(util.gatherObjectsInArray(this.containers,options.containers[i]));
         }
         for(let i=0; i<containers.length; i++){
             if((resourceType && containers[i].available[resourceType] >= options.amount) || (!resourceType && _.sum(containers[i].available) >= options.amount)){
@@ -468,20 +508,23 @@ Room.prototype.availableResources = function(options){
         }
     }
     
-    if(options.links){
-        let links = [];
-        for(let i=0; i<options.links.length; i++){
-            links = links.concat(util.gatherObjectsInArray(this.links,options.links[i]));
+    if(options.labs){
+        let labs = [];
+        for(let i=0; i<options.labs.length; i++){
+            Array.prototype.push.apply(labs,util.gatherObjectsInArray(this.labs,options.labs[i]));
+            //labs = labs.concat(util.gatherObjectsInArray(this.labs,options.labs[i]));
         }
-        let linkAmount = Math.pow((1-LINK_LOSS_RATIO),4) * LINK_CAPACITY;
-        for(let i=0; i<links.length; i++){
-            if((resourceType && links[i].available[resourceType] >= linkAmount) || (!resourceType && _.sum(links[i].available) >= linkAmount)){
-                available.push(links[i]);
+        for(let i=0; i<labs.length; i++){
+            if((resourceType && labs[i].available[resourceType] >= options.amount) || (!resourceType && _.sum(labs[i].available) >= options.amount)){
+                available.push(labs[i]);
             }
         }
     }
     
     if(options.dropped){
+        if(options.nWork == undefined){
+            potions.nWork = 5;
+        }
         for(let i=0; i<this.dropped.length; i++){
             let harvestPower;
             if(this.dropped[i].resourceType == RESOURCE_ENERGY){
@@ -489,12 +532,189 @@ Room.prototype.availableResources = function(options){
             } else {
                 harvestPower = HARVEST_MINERAL_POWER;
             }
+            /*
+            if(this.name == 'W10N6'){
+                console.log(this.name + ' available in ' + this.dropped[i]);
+            }//*/
             let resourceAmount = options.nWork * harvestPower * Math.ceil(Math.sqrt(Math.pow(options.pos.x-this.dropped[i].pos.x,2) + Math.pow(options.pos.y-this.dropped[i].pos.y,2)));
+            /*
+            if(this.name == 'W10N6'){
+                console.log('Amoutn ' + resourceAmount + ' av ' + this.dropped[i].available[resourceType]);
+            }//*/
             if((resourceType && this.dropped[i].available[resourceType] >= resourceAmount) || (!resourceType && _.sum(this.dropped[i].available) >= resourceAmount)){
                 available.push(this.dropped[i]);
             }
         }
     }
     
+    /*if(this.memory.defense.underAttack){
+        //Check if path is not obstructed by hostiles
+        for(i=0; i<available.length; i++){
+            if(!available[i].pos.accessible){
+                availavle.slice(i,1);
+                i--;
+            }
+        }
+        
+    }*/
+    
     return available;
+};
+
+Room.prototype.availableStorage = function(options){
+    if(options == undefined){
+        //Default options: will store resources anywhere
+        options = {storage: true, terminal: true, towers: true, spawnsAndExtensions: true, containers: ['source','upgrader','mineral','spawn'], links: ['source','spawn','storage','upgrader'], labs: ['source','target','boost']};
+    }
+    
+    if(!options.amount){
+        //Of no amount s specified -> will get all targets which can hold at least 1 more resource
+        options.amount = 1;
+    }
+    if(!options.carry){
+        //Need to know what creep is carrying
+        return [];
+    }
+    
+    let resources = [];
+    for(let resource in options.carry){
+        if(options.carry[resource] > 0){
+            resources.push(resource);
+        }
+    }
+    
+    let available = [];
+    
+    if(options.terminal && this.terminal && this.memory.orders && this.memory.orders[resources[0]] >= Math.min(options.carry[resources[0]],options.amount) && this.terminal.storeCapacity - _.sum(this.terminal.store) - _.sum(this.terminal.inTransit) >= Math.min(options.carry[resources[0]],options.amount)){
+        available.push(this.terminal);
+    }
+    
+    if(options.storage && this.storage && this.storage.storeCapacity - _.sum(this.storage.store) - _.sum(this.storage.inTransit) >= options.amount){
+        available.push(this.storage);
+    }
+    
+    if(options.containers){
+        let containers = [];
+        for(let i=0; i<options.containers.length; i++){
+            Array.prototype.push.apply(containers,util.gatherObjectsInArray(this.containers,options.containers[i]));
+            //containers = containers.concat(util.gatherObjectsInArray(this.containers,options.containers[i]));
+        }
+        for(let i=0; i<containers.length; i++){
+            if(containers[i].storeCapacity - _.sum(containers[i].store) - _.sum(containers[i].inTransit) >= options.amount){
+                available.push(containers[i]);
+            }
+        }
+    }
+    
+    if(options.links && resources.indexOf(RESOURCE_ENERGY) != -1){
+        let links = [];
+        for(let i=0; i<options.links.length; i++){
+            Array.prototype.push.apply(links,util.gatherObjectsInArray(this.links,options.links[i]));
+            //links = links.concat(util.gatherObjectsInArray(this.links,options.links[i]));
+        }
+        let linkAmount = Math.pow((1-LINK_LOSS_RATIO),4) * LINK_CAPACITY;
+        for(let i=0; i<links.length; i++){
+            let inTransit = links[i].inTransit[RESOURCE_ENERGY] || 0;
+            if(links[i].energyCapacity - links[i].energy - inTransit >= Math.min(linkAmount,options.amount)){
+                available.push(links[i]);
+            }
+        }
+    }
+    
+    if(options.labs){
+        let labs = [];
+        for(let i=0; i<options.labs.length; i++){
+            Array.prototype.push.apply(labs,util.gatherObjectsInArray(this.labs,options.labs[i]));
+            //labs = labs.concat(util.gatherObjectsInArray(this.labs,options.labs[i]));
+        }
+        for(let i=0; i<labs.length; i++){
+            let energyIntransit = labs[i].inTransit[RESOURCE_ENERGY] || 0;
+            let mineralsInTransit = 0;
+            if(labs[i].mineralType){mineralsInTransit = labs[i].inTransit[labs[i].mineralType] || 0}
+            if(resources.indexOf(RESOURCE_ENERGY) != -1 && labs[i].energyCapacity - labs[i].energy - energyIntransit >= Math.min(options.carry[RESOURCE_ENERGY],options.amount)){
+                available.push(labs[i]);
+            }
+            else if((!labs[i].mineralType || (labs[i].mineralType && resources.indexOf(labs[i].mineralType) != -1)) && labs[i].mineralCapacity - labs[i].mineralAmount - mineralsInTransit >= Math.min(options.carry[labs[i].mineralType],options.amount)){
+                available.push(labs[i]);
+            }
+        }
+    }
+    
+    if(options.towers){
+        let towers = util.gatherObjectsInArray(this.structures,STRUCTURE_TOWER).filter((t) => t.energyCapacity - t.energy - t.inTransit[RESOURCE_ENERGY] >= options.amount);
+        Array.prototype.push.apply(available,towers);
+        //available = available.concat(towers);
+    }
+    
+    if(options.spawnsAndExtensions){
+        Array.prototype.push.apply(available,this.toFill.filter((e) => e.energyCapacity - e.energy - _.sum(e.inTransit[RESOURCE_ENERGY]) > 0));
+        //available = available.concat(this.toFill);
+    }
+    
+    return available;
+};
+
+Room.prototype.findExtPath = function(){
+    let start;
+    let spawnLinks = util.gatherObjectsInArray(this.links,'spawn');
+    if(spawnLinks.length){
+        start = spawnLinks[0];
+    }
+    else {
+        let spawnContainers = util.gatherObjectsInArray(this.containers,'spawn');
+        if(spawnContainers.length){
+            start = spawnContainers[0];
+        }
+        else {
+            let spawns = util.gatherObjectsInArray(this.structures,STRUCTURE_SPAWN);
+            if(spawns.length){
+                start = spawns[0];
+            }
+            else {
+                return ERR_NOT_FOUND;
+            }
+        }
+    }
+    
+    let maxIterations = 100;
+    let it=0;
+    let path = [];
+    let optNextStep = start.pos.walkableNeighborPositions;
+    let prevStep;
+    let nextStep;
+    
+    while(it<maxIterations){
+        //console.log('OptionalNextSteps ' + optNextStep);
+        it++;
+        prevStep = nextStep;
+        if(!optNextStep.length){
+            return ERR_NOT_FOUND;
+        }
+        let maxExt;
+        for(let i=0; i<optNextStep.length; i++){
+            nExt = util.gatherObjectsInArray(optNextStep[i].adjacentStructures,STRUCTURE_SPAWN,STRUCTURE_EXTENSION).length;
+            //console.log('Extensions and spawns near ' + optNextStep[i] + ' ' + nExt);
+            if(!maxExt || nExt > maxExt){
+                maxExt = nExt;
+                nextStep = optNextStep[i];
+            }
+        }
+        //console.log('Next step is ' + nextStep);
+        if(path[0] && nextStep.x === path[0].x && nextStep.y === path[0].y && nextStep.roomName === path[0].roomName){
+            //Path has been completed
+            //console.log('Found path');
+            path.push(new RoomPosition(nextStep.x,nextStep.y,nextStep.roomName));
+            return path;
+        }
+        path.push(new RoomPosition(nextStep.x,nextStep.y,nextStep.roomName));
+        optNextStep = nextStep.walkableNeighborPositions.filter((p) => prevStep == undefined || p.x !== prevStep.x || p.y !== prevStep.y || p.roomName !== prevStep.roomName);
+    }
+    //console.log('Max iterations reached ' + path);
+    return ERR_NOT_FOUND;
+};
+
+Room.prototype.nonLinearDistance = function(roomName){
+    let coordThis = /^[WE]([0-9]+)[NS]([0-9]+)$/.exec(this.name);
+    let coordTarget = /^[WE]([0-9]+)[NS]([0-9]+)$/.exec(roomName);
+    return Math.abs(coordThis[1] - coordTarget[1]) + Math.abs(coordThis[2] - coordTarget[2]);
 };

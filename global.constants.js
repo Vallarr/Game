@@ -19,10 +19,45 @@ global.ALLIES = {
     'PervyPenguin': true,
     'gastraph': true,
     'Violaman': true,
-    'IFor': true
+    'IFor': true,
+	'QuickStrike': true
+};
+
+global.OBSTACLES = {
+    "spawn": true,
+    "creep": true,
+    "wall": true,
+    "source":true,
+    "constructedWall": true,
+    "extension": true,
+    "link": true,
+    "storage": true,
+    "tower": true,
+    "observer": true,
+    "powerSpawn": true,
+    "powerBank": true,
+    "lab": true,
+    "terminal": true,
+    "nuker": true
+};
+
+global.defaultRoomStorageTreshold = {
+    min: 100000,
+    low: 150000,
+    med: 200000,
+    high: 250000,
+    max: 300000,
+    critical: 350000
 };
 
 global.ROOM_RESET_TIMER = 10;
+
+global.MAX_STORE_TERMINAL = 280000;
+
+global.GCL_FARM_TERMINAL_FILL = {
+    low: 50000,
+    high: 150000
+};
 
 global.TYPE_SETTLER = 'settler';
 global.TYPE_EXPLORER = 'explorer';
@@ -41,6 +76,8 @@ global.ROLE_HYBRID = 'hybrid';
 global.ROLE_PATROLLER = 'patroller';
 global.ROLE_PATROLLERRANGED = 'patrollerRanged';
 
+global.RESOURCE_ANY = 'any';
+
 global.CREEP_BODY_HITS = 100;
 global.DEFENSE_DAMAGE_SURPLUS = 200;
 global.DEFENSE_MAX_NUMBER_ATTACK = 33;
@@ -49,6 +86,24 @@ global.CONTROLLER_RESERVE_MIN = 1000;
 global.CONTROLLER_RESERVE_OK = 0.9 * CONTROLLER_RESERVE_MAX;
 
 global.DEFAULT_DECAY = 200;
+
+global.STRUCTURE_ALL = [
+    STRUCTURE_SPAWN,
+    STRUCTURE_EXTENSION,
+    STRUCTURE_ROAD,
+    STRUCTURE_WALL,
+    STRUCTURE_RAMPART,
+    STRUCTURE_LINK,
+    STRUCTURE_STORAGE,
+    STRUCTURE_TOWER,
+    STRUCTURE_OBSERVER,
+    STRUCTURE_POWER_SPAWN,
+    STRUCTURE_EXTRACTOR,
+    STRUCTURE_LAB,
+    STRUCTURE_TERMINAL,
+    STRUCTURE_CONTAINER,
+    STRUCTURE_NUKER
+]
 
 global.spawnBasePriority = {
     defender: {
